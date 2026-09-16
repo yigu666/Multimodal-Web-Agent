@@ -1,0 +1,97 @@
+schema_version: hierarchical-grounded-search-reward-v2-config-v1
+
+reward:
+  name: hierarchical_grounded_search_v2
+  version: v2
+
+  answer:
+    em_v1_weight: 0.60
+    token_f1_v1_weight: 0.25
+    deterministic_equivalence_v2_weight: 0.15
+
+  evidence:
+    evidence_use_weight: 0.25
+    missed_evidence_weight: 0.30
+    wrong_span_copy_weight: 0.20
+    wrong_span_prediction_support_threshold: 0.80
+    wrong_span_answer_score_threshold: 0.15
+    wrong_span_gold_support_threshold: 0.50
+
+  terminal:
+    invalid_protocol_reward: -1.00
+    missing_answer_reward: -0.60
+    min_reward: -1.00
+    max_reward: 1.00
+
+  text_query:
+    actual_rank_weight: 0.70
+    improvement_weight: 0.30
+    improvement_min: -0.50
+    improvement_max: 1.00
+    utility_min: -0.15
+    utility_max: 1.00
+    use_corpus_coverage_mask: true
+    use_question_only_baseline: true
+
+  text_query_advantage:
+    improvement_weight: 0.70
+    actual_rank_weight: 0.30
+    min_advantage: -0.25
+    max_advantage: 1.00
+
+  local_credit:
+    text_terminal_weight: 0.35
+    text_local_weight: 0.65
+    image_terminal_weight: 1.00
+    image_local_weight: 0.00
+    min_valid_actions: 2
+    advantage_epsilon: 1.0e-6
+  variance_epsilon: 1.0e-12
+
+text_search_exploration:
+  enabled_train_only: true
+  trajectories_per_group: 1
+
+  smoke:
+    mode: fixed
+    epsilon: 0.50
+    # The active tokenizer's second opening-tag token has base probability as
+    # low as 1.7e-10.  At temperature 0.7, +20 makes the complete multi-token
+    # opening tag reliably explorable while leaving every query token intact.
+    logit_bias: 20.0
+
+  full:
+    mode: linear_decay
+    initial_epsilon: 0.30
+    initial_logit_bias: 4.0
+    decay_start_fraction: 0.25
+    decay_end_fraction: 0.60
+    final_epsilon: 0.0
+    final_logit_bias: 0.0
+
+  use_gold_conditioning: false
+  use_task_type_conditioning: false
+  use_search_required_conditioning: false
+  use_coverage_conditioning: false
+
+paths:
+  prompt_pool: data/processed/grpo_prompt_pool_v1/train.jsonl
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  coverage_cache: data/processed/grpo_reward_v2/text_corpus_answer_coverage.jsonl
+  coverage_manifest: data/processed/grpo_reward_v2/text_corpus_answer_coverage_manifest.json
+  question_baseline_cache: data/processed/grpo_reward_v2/question_only_baseline.jsonl
+  question_baseline_manifest: data/processed/grpo_reward_v2/question_only_baseline_manifest.json
+  environment_manifest: configs/grpo/common_v1_server.yaml
+  sft_adapter: outputs/protocol_format_sft_v1_full/selected_adapter
+
+frozen_contract:
+  sft_adapter_sha256: 45baf20eb386804c717013303989e9d382d2b4299de6090a6b4abde7799fa2d5
+  image_top_k: 3
+  text_top_k: 3
+  image_context_policy: canonical_cached_top3
+  maximum_agent_turns: 3
+  group_size: 4
+  prompt_groups_per_update: 4
+  ppo_clip_ratio: 0.20
+  full_training_allowed: false
+  unified_frozen_test_access_allowed: false

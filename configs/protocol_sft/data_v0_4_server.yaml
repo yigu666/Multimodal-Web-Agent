@@ -1,0 +1,52 @@
+seed: 20260727
+
+dataset:
+  schema_version: protocol-sft-v0.4
+  state_action_examples: 1000
+  train_examples: 800
+  dev_examples: 100
+  test_examples: 100
+
+source:
+  master_pool_dir: data/processed/validated_master_pool_v0_1
+  master_pool_audit: data/manifests/validated_master_pool_v0_1_audit.json
+  master_pool_hashes: data/manifests/validated_master_pool_v0_1_files.sha256
+  historical_test_path: data/processed/protocol_sft_v0_3/test.jsonl
+
+repair:
+  mode: reject_only
+  automatic_route_conversion: false
+  automatic_query_rewrite: false
+
+route_targets:
+  text_search_answer:
+    minimum: 0
+    preferred: 60
+    maximum: 80
+  image_text_search_answer:
+    minimum: 0
+    preferred: 20
+    maximum: 30
+  direct_answer:
+    minimum: 280
+    preferred: 310
+    maximum: 340
+  image_search_answer:
+    minimum: 250
+    preferred: 315
+    maximum: 380
+
+split:
+  train_fraction: 0.8
+  dev_fraction: 0.1
+  test_fraction: 0.1
+  group_by_entity: true
+  group_by_near_duplicate: true
+  exclude_historical_test_groups_from_train_dev: true
+  new_test_embargo: true
+
+output:
+  directory: data/processed/protocol_sft_v0_4
+  manifest: data/manifests/protocol_sft_v0_4_manifest.json
+  audit: data/manifests/protocol_sft_v0_4_audit.json
+  hashes: data/manifests/protocol_sft_v0_4_files.sha256

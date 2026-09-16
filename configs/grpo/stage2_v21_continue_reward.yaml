@@ -1,0 +1,78 @@
+schema_version: stage2-v21-continue-reward-v1
+stage2:
+  variant: S2_A
+  initialization: reward_v21_selected_checkpoint
+  success_gated_query_credit: false
+  group_rank_reward: false
+  success_filtered_group_updates: false
+  negative_evidence_shaping: false
+reward:
+  name: answer_dominant_positive
+  version: v2.1
+  mode: answer_dominant_positive
+  answer: {em_v1_weight: 0.70, token_f1_v1_weight: 0.30, deterministic_equivalence_v2_weight: 0.0}
+  grounding: {enabled: true, weight: 0.15, residual_capacity_scale: true, answer_em_weight: 0.70, answer_token_f1_weight: 0.30}
+  evidence:
+    evidence_use_weight: 0.0
+    missed_evidence_weight: 0.0
+    wrong_span_copy_weight: 0.0
+    wrong_span_prediction_support_threshold: 0.80
+    wrong_span_answer_score_threshold: 0.15
+    wrong_span_gold_support_threshold: 0.50
+  negative_shaping: {missed_evidence_weight: 0.0, wrong_span_copy_weight: 0.0}
+  terminal: {invalid_protocol_reward: -1.0, missing_answer_reward: -0.6, min_reward: -1.0, max_reward: 1.0}
+  text_query:
+    actual_rank_weight: 0.70
+    improvement_weight: 0.30
+    improvement_min: -0.50
+    improvement_max: 1.00
+    utility_min: -0.15
+    utility_max: 1.00
+    use_corpus_coverage_mask: true
+    use_question_only_baseline: true
+  text_query_advantage: {improvement_weight: 0.70, actual_rank_weight: 0.30, min_advantage: -0.25, max_advantage: 1.00}
+  local_credit:
+    text_terminal_weight: 0.80
+    text_local_weight: 0.20
+    text_local_enabled: true
+    text_local_positive_only: true
+    image_terminal_weight: 1.0
+    image_local_weight: 0.0
+    min_valid_actions: 2
+    advantage_epsilon: 1.0e-6
+    variance_epsilon: 1.0e-12
+text_search_exploration:
+  enabled_train_only: false
+  trajectories_per_group: 0
+  inherited_from: reward_v21_terminal_state
+  epsilon: 0.0
+  logit_bias: 0.0
+  use_gold_conditioning: false
+  use_task_type_conditioning: false
+  use_search_required_conditioning: false
+  use_coverage_conditioning: false
+  use_source_dataset_conditioning: false
+paths:
+  prompt_pool: data/processed/grpo_prompt_pool_v1/train.jsonl
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  coverage_cache: data/processed/grpo_reward_v2/text_corpus_answer_coverage.jsonl
+  coverage_manifest: data/processed/grpo_reward_v2/text_corpus_answer_coverage_manifest.json
+  question_baseline_cache: data/processed/grpo_reward_v2/question_only_baseline.jsonl
+  question_baseline_manifest: data/processed/grpo_reward_v2/question_only_baseline_manifest.json
+  environment_manifest: configs/grpo/common_v1_server.yaml
+  sft_adapter: outputs/protocol_format_sft_v1_full/selected_adapter
+frozen_contract:
+  sft_adapter_sha256: 45baf20eb386804c717013303989e9d382d2b4299de6090a6b4abde7799fa2d5
+  initialization: reward_v21_selected_checkpoint
+  reward_v0_checkpoint_allowed: false
+  reward_v2_checkpoint_allowed: false
+  image_top_k: 3
+  text_top_k: 3
+  image_context_policy: canonical_cached_top3
+  maximum_agent_turns: 3
+  group_size: 4
+  prompt_groups_per_update: 4
+  ppo_clip_ratio: 0.20
+  full_training_allowed: true
+  unified_frozen_test_access_allowed: false
+

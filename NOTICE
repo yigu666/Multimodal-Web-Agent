@@ -1,0 +1,15 @@
+Multimodal Web Agent
+Copyright 2026 Multimodal Web Agent contributors
+
+This product includes LoRA adapters derived from Qwen2.5-VL-3B-Instruct.
+Qwen is licensed under the Qwen RESEARCH LICENSE AGREEMENT,
+Copyright (c) Alibaba Cloud. All Rights Reserved.
+
+Improved using Qwen.
+
+The release does not redistribute public datasets or the Qwen base model.
+Dataset and base-model licenses remain with their respective owners.
+
+The upstream Multimodal-Search-R1 repository is referenced for provenance but
+is not vendored in this release. It is distributed by its authors under
+Apache-2.0.

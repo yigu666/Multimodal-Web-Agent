@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multimodal-web-agent"
+version = "0.1.0"
+description = "Protocol SFT, GRPO, and evaluation for a multimodal web agent"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+license = {text = "Apache-2.0"}
+dependencies = [
+  "numpy==1.26.4",
+  "Pillow==11.1.0",
+  "PyYAML==6.0.3",
+  "requests==2.34.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]

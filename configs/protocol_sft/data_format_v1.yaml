@@ -1,0 +1,30 @@
+schema_version: protocol-format-sft-v1
+seed: 20260728
+
+sources:
+  protocol_v0_5_dir: data/processed/protocol_sft_v0_5
+  protocol_v0_5_hashes: data/manifests/protocol_sft_v0_5_files.sha256
+  master_pool_dir: data/processed/validated_master_pool_v0_2
+  master_pool_hashes: data/manifests/validated_master_pool_v0_2_files.sha256
+
+# These Train/Dev files are read only for source_data_id allowlisting. Their
+# targets are never copied. Protected Test/evaluation files are never opened;
+# every source not proven Train/Dev is denied by default.
+historical_provenance:
+  train:
+    - data/processed/protocol_sft_v0_3/train.jsonl
+    - data/processed/protocol_sft_v0_4/train.jsonl
+  dev:
+    - data/processed/protocol_sft_v0_3/dev.jsonl
+    - data/processed/protocol_sft_v0_4/dev.jsonl
+
+selection:
+  direct_answer: {train: 279, dev: 31}
+  image_search_answer: {train: 297, dev: 33}
+  image_text_search_answer: {train: 9, dev: 1}
+
+output:
+  directory: data/processed/protocol_format_sft_v1
+  manifest_file: data/manifests/protocol_format_sft_v1_manifest.json
+  audit_file: data/manifests/protocol_format_sft_v1_audit.json
+  hash_file: data/manifests/protocol_format_sft_v1_files.sha256

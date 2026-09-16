@@ -1,0 +1,29 @@
+schema_version: grpo-stage2-continued-v1
+mode: short
+strategy: S2_A
+experiment_id: grpo_s2_v21_continue_short
+reward_config: configs/grpo/stage2_v21_continue_reward.yaml
+contract: outputs/grpo_stage2_contract/run_manifest.json
+step0_evaluation: outputs/grpo_stage2_step0_frozen_dev/run_manifest.json
+output_dir: outputs/grpo_stage2_v21_continue_short_256
+run_seed: 20260730
+scale: {prompt_count: 256, group_size: 4, total_rollouts: 1024, prompt_groups_per_update: 4, trajectories_per_update: 16, scheduled_updates: 64}
+checkpoint_updates: [16, 32, 48, 64]
+initialization:
+  source: reward_v21_selected_checkpoint
+  stage1_manifest: outputs/grpo_reward_v21_full/run_manifest.json
+  load_optimizer_state: false
+  load_scheduler_state: false
+optimizer:
+  stage1_learning_rate: 5.0e-7
+  learning_rate_scale: 0.5
+  actor_learning_rate: 2.5e-7
+  optimizer: paged_adamw_8bit
+  scheduler: none_as_v21_fresh_state
+  max_grad_norm: 1.0
+  weight_decay: 0.0
+  ppo_epochs: 1
+  clip_ratio: 0.2
+exploration: {inherit_v21_terminal_state: true, enabled: false, epsilon: 0.0, logit_bias: 0.0, restart_schedule: false}
+frozen_test_access_allowed: false
+

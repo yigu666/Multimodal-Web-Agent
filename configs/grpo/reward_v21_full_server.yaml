@@ -1,0 +1,69 @@
+schema_version: grpo-reward-v2-full-training-contract-v1
+mode: full
+experiment_id: reward_v21
+reward_config: configs/grpo/reward_v2_1_answer_dominant_positive.yaml
+smoke_baseline: outputs/grpo_reward_v2_text_exploration_smoke_128
+full_contract: outputs/grpo_reward_v21_full_contract/run_manifest.json
+output_dir: outputs/grpo_reward_v21_full
+selected_checkpoint_dirname: selected_reward_v21_checkpoint
+run_seed: 20260730
+
+scale:
+  prompt_pool: 2048
+  group_size: 4
+  total_rollouts: 8192
+  prompt_groups_per_update: 4
+  trajectories_per_update: 16
+  total_updates: 512
+  pool_passes: 1
+
+initialization:
+  source: frozen_sft_adapter
+  adapter_path: outputs/protocol_format_sft_v1_full/selected_adapter
+  adapter_sha256: 45baf20eb386804c717013303989e9d382d2b4299de6090a6b4abde7799fa2d5
+  reward_v0_checkpoint_allowed: false
+  reward_v2_checkpoint_allowed: false
+  resume_checkpoint_allowed: false
+
+optimizer:
+  actor_learning_rate: 5.0e-7
+  optimizer: paged_adamw_8bit
+  max_grad_norm: 1.0
+  weight_decay: 0.0
+  ppo_epochs: 1
+  clip_ratio: 0.20
+
+checkpoint:
+  every_prompt_groups: 256
+  expected_count: 8
+  save_optimizer_state: false
+  reload_validate_each_checkpoint: true
+  final_selection: prompt_2048
+
+continuous_contract:
+  check_every_update: true
+  full_hash_check_every_updates: 64
+  behavior_logprob_max_abs_error: 1.0e-3
+  stop_on_nonfinite: true
+  stop_on_input_identity_failure: true
+  stop_on_environment_token_loss_leak: true
+  stop_on_visual_or_projector_change: true
+  stop_if_no_cumulative_lora_change_by_checkpoint: true
+  stop_on_checkpoint_save_or_reload_failure: true
+  stop_on_frozen_artifact_hash_change: true
+
+diagnostic_only_never_stop:
+  - text_search_count
+  - local_advantage_density
+  - average_tool_calls
+  - image_search_count
+  - short_term_reward
+  - average_trajectory_length
+  - search_budget
+
+boundaries:
+  automatic_start: false
+  automatic_retry: false
+  reward_v0_checkpoint_access: false
+  unified_frozen_dev_access_during_training: false
+  unified_frozen_test_access: false

@@ -1,0 +1,8 @@
+name: multimodal-web-agent
+channels:
+  - defaults
+dependencies:
+  - python=3.10.18
+  - pip
+  - pip:
+      - -r environment/requirements.txt

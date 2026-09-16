@@ -1,0 +1,34 @@
+schema_version: shared-executability-gate-v0.2
+
+policy:
+  name: reject_first
+  repair_mode: reject_only
+  automatic_route_conversion: false
+  automatic_query_rewrite: false
+
+text_search:
+  require_visible_entity: true
+  require_named_or_unique_retrieval_anchor_for_initial: true
+  ordinary_visual_category_is_not_entity: true
+  reject_deictic_visual_subject: true
+  reject_unresolvable_visual_reference: true
+  reject_generic_query: true
+  reject_answer_leak: true
+  require_evidence_reachability: true
+  maximum_question_copy_ratio_without_entity: 0.85
+
+answer:
+  require_current_state_support: true
+
+image_search:
+  require_cache_hit: true
+  require_nonempty_information: true
+
+grouping:
+  use_source_hash: true
+  use_image_dhash: true
+  use_entity_group: true
+
+split:
+  group_by_entity: true
+  group_by_near_duplicate: true

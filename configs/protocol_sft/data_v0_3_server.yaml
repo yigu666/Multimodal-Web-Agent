@@ -1,0 +1,98 @@
+dataset:
+  schema_version: protocol-sft-v0.3
+  source_parquet: data/raw/fvqa/fvqa_train.parquet
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  previous_dataset_dir: data/processed/protocol_sft_v0_2
+  previous_audit_path: data/manifests/protocol_sft_v0_2_audit.json
+  output_dir: data/processed/protocol_sft_v0_3
+  seed: 20260722
+
+reuse:
+  require_previous_dataset: true
+  require_previous_trajectories: 480
+  require_previous_state_actions: 772
+  expected_previous_routes:
+    direct_answer: 202
+    image_search_answer: 200
+    text_search_answer: 64
+    image_text_search_answer: 14
+  allow_previous_global_shortfall_failure: true
+  reject_other_previous_quality_failures: true
+
+targets:
+  direct_answer_trajectories: 246
+  image_search_answer_trajectories: 292
+  text_search_answer_trajectories: 64
+  image_text_search_answer_trajectories: 14
+  new_direct_answer_trajectories: 44
+  new_image_search_answer_trajectories: 92
+  logical_trajectories: 616
+  state_action_examples: 1000
+  allow_shortfall: true
+
+split:
+  direct_answer:
+    train: 192
+    dev: 27
+    test: 27
+  image_search_answer:
+    train: 234
+    dev: 29
+    test: 29
+  text_search_answer:
+    train: 52
+    dev: 6
+    test: 6
+  image_text_search_answer:
+    train: 12
+    dev: 1
+    test: 1
+  train_examples: 800
+  dev_examples: 100
+  test_examples: 100
+  group_key: source_data_id
+
+selection:
+  direct_category: search_free
+  image_category: search_required
+  require_image_cache_hit: true
+  require_answer_in_image_information: true
+  deterministic_evidence_ranking: true
+
+query:
+  visible_context_only: true
+  allow_cache_title_input: false
+  unavailable_context_min_ngram: 4
+  unavailable_context_overlap_threshold: 0.5
+
+information:
+  strip_visual_placeholders: true
+
+reason_templates:
+  min_unique_per_transition: 8
+
+protocol:
+  reason_max_tokens: 48
+  text_query_min_tokens: 3
+  text_query_max_tokens: 32
+
+retrieval:
+  image_top_k: 3
+  text_top_k: 3
+  deterministic: true
+
+manual_audit:
+  direct_count: 20
+  image_count: 56
+  text_count: 20
+  image_text_count: 14
+  new_direct_count: 20
+  new_image_count: 40
+  reused_image_count: 16
+  seed: 20260722
+
+tokenization:
+  model_path: models/Qwen2.5-VL-3B-Instruct
+  max_seq_len: 1536
+  visual_token_target: 256
+  target_reserve: 96

@@ -1,0 +1,16 @@
+run: {name: lightweight_multimodal_grpo_v1_reward_v0, seed: 20260730}
+model:
+  path: models/Qwen2.5-VL-3B-Instruct
+  adapter_path: outputs/protocol_format_sft_v1_full/selected_adapter
+  local_files_only: true
+quantization: {load_in_4bit: true, quant_type: nf4, double_quant: true, compute_dtype: float16}
+vision: {freeze_encoder: true, freeze_projector: true, visual_token_target: 256, pixel_budget: 200704}
+context: {max_seq_len: 1536, max_turns: 3, max_new_tokens_per_turn: 96, max_information_tokens_per_turn: 150}
+environment:
+  image_top_k: 3
+  text_top_k: 3
+  image_context_policy: canonical_cached_top3
+rollout: {group_size: 4, prompt_groups_per_update: 4, do_sample: true, temperature: 0.7, top_p: 0.9, top_k: 0}
+optimizer: {actor_learning_rate: 5.0e-7, optimizer: paged_adamw_8bit, max_grad_norm: 1.0, weight_decay: 0.0}
+grpo: {ppo_epochs: 1, clip_ratio: 0.2, kl_coefficient: 0.0, entropy_coefficient: 0.0, advantage_normalization: group, trajectory_balanced_loss: true, reward_name: mmsearch_like_reward_v0}
+precision: {fp16: true, bf16: false}

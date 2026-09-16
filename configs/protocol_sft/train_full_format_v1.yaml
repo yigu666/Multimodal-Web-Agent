@@ -1,0 +1,83 @@
+objective: protocol_format
+
+run:
+  name: protocol_format_sft_v1_full
+  mode: full
+  seed: 20260728
+  output_dir: outputs/protocol_format_sft_v1_full
+  overwrite_output_dir: false
+
+data:
+  schema_version: protocol-format-sft-v1
+  train_file: data/processed/protocol_format_sft_v1/train.jsonl
+  dev_file: data/processed/protocol_format_sft_v1/dev.jsonl
+  manifest_file: data/manifests/protocol_format_sft_v1_manifest.json
+  audit_file: data/manifests/protocol_format_sft_v1_audit.json
+  hashes_file: data/manifests/protocol_format_sft_v1_files.sha256
+  source_parquet: data/raw/fvqa/fvqa_train.parquet
+  expected_train_count: 900
+  expected_dev_count: 100
+  max_seq_len: 1536
+  pixel_budget: 200704
+  allow_test_access: false
+  allow_test_during_training: false
+  test_embargoed: false
+
+sampling:
+  mode: format_exposure_balance
+  epoch_size: 1000
+  seed: 20260728
+  transition_quotas:
+    initial_to_direct_answer: 200
+    initial_to_image_search: 200
+    image_information_to_answer: 200
+    image_information_to_text_search: 200
+    text_information_to_answer: 200
+
+model:
+  path: models/Qwen2.5-VL-3B-Instruct
+  local_files_only: true
+  load_in_4bit: true
+  compute_dtype: float16
+  quant_type: nf4
+  double_quant: true
+  freeze_visual: true
+  gradient_checkpointing: true
+  use_reentrant: false
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: none
+  task_type: CAUSAL_LM
+  target_suffixes: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  excluded_name_fragments: [visual, vision, merger, image]
+
+loss:
+  mode: standard_current_turn
+  weighted_target_loss: false
+
+training:
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.00015
+  warmup_ratio: 0.05
+  lr_scheduler_type: cosine
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  fp16: true
+  bf16: false
+  optim: paged_adamw_8bit
+  logging_steps: 10
+  evaluation_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 3
+  load_best_model_at_end: false
+  metric_for_best_model: eval_loss
+  greater_is_better: false
+  dataloader_num_workers: 0
+  remove_unused_columns: false
+  report_to: []

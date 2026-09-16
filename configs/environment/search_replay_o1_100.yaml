@@ -1,0 +1,38 @@
+schema_version: online-web-agent-search-config-v2
+profile: replay_o1_100
+backend_mode: replay
+environment_dir: data/processed/unified_agent_eval_v1_1/environment
+text_search:
+  provider: serper
+  locale: en-US
+  top_k: 5
+  provider_top_k: 5
+  record_max_chars: 1000
+  chunk_words: 320
+  chunk_overlap_words: 48
+  timeout_seconds: 12
+visual_search:
+  provider: serpapi_google_lens
+  auto_crop: false
+  locale: en-US
+  country: us
+  safe: active
+  top_k: 5
+  visual_match_top_k: 5
+  related_content_top_k: 2
+  record_max_chars: 512
+  read_matching_pages: 2
+  max_upload_bytes: 500000
+  timeout_seconds: 30
+  region_aware: false
+page_reader: {provider: disabled, timeout_seconds: 15, max_response_bytes: 2000000, max_redirects: 3}
+cache: {enabled: true, root: outputs/online_web_cache}
+provenance: {enabled: true, root: outputs/online_web_agent_v1_o1_100/replay_provenance}
+online_budget:
+  enabled: true
+  max_serper_requests: 2500
+  max_serpapi_lens_requests: 200
+  max_jina_requests: 500
+  allow_paid_overage: false
+  ledger_path: outputs/online_web_agent_v1_cost_revision_v2/budget/remote_call_ledger.json
+boundaries: {frozen_test_access: false, training_allowed: false, network_allowed: false, google_cloud_required: false}

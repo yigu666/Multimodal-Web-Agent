@@ -1,0 +1,33 @@
+dataset:
+  source_parquet: data/raw/fvqa/fvqa_train.parquet
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  output_dir: data/processed/protocol_sft_v0
+  seed: 20260722
+
+targets:
+  direct_trajectories: 200
+  image_search_trajectories: 200
+  text_search_trajectories: 200
+  state_action_examples: 1000
+
+split:
+  train_state_actions: 800
+  dev_state_actions: 100
+  test_state_actions: 100
+  group_key: source_data_id
+
+protocol:
+  reason_max_tokens: 48
+  text_query_min_tokens: 3
+  text_query_max_tokens: 32
+
+retrieval:
+  text_top_k: 3
+  image_top_k: 3
+  deterministic: true
+
+tokenization:
+  model_path: models/Qwen2.5-VL-3B-Instruct
+  max_seq_len: 1536
+  visual_token_target: 256
+  target_reserve: 96

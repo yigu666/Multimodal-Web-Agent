@@ -1,0 +1,67 @@
+dataset:
+  schema_version: protocol-sft-v0.2
+  source_parquet: data/raw/fvqa/fvqa_train.parquet
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  previous_dataset_dir: data/processed/protocol_sft_v0_1
+  output_dir: data/processed/protocol_sft_v0_2
+  seed: 20260722
+
+targets:
+  direct_answer_trajectories: 202
+  image_search_answer_trajectories: 200
+  text_search_answer_trajectories: 64
+  image_text_search_answer_trajectories: 90
+  logical_trajectories: 556
+  state_action_examples: 1000
+  allow_shortfall: true
+
+split:
+  train_examples: 800
+  dev_examples: 100
+  test_examples: 100
+  group_key: source_data_id
+
+image_text_route:
+  # Only the visible rank-1 title identifies the entity. Later text retrieval
+  # excludes that document, so the answer must come from independent evidence.
+  image_top_k: 1
+  relation_required: true
+  entity_must_be_visible: true
+  answer_must_not_be_in_image_information: true
+  answer_must_be_in_text_information: true
+  exclude_image_context_documents_from_text_evidence: true
+
+query:
+  visible_context_only: true
+  allow_cache_title_input: false
+  unavailable_context_min_ngram: 4
+  unavailable_context_overlap_threshold: 0.5
+
+information:
+  strip_visual_placeholders: true
+
+reason_templates:
+  min_unique_per_transition: 8
+
+protocol:
+  reason_max_tokens: 48
+  text_query_min_tokens: 3
+  text_query_max_tokens: 32
+
+retrieval:
+  image_top_k: 3
+  text_top_k: 3
+  deterministic: true
+
+manual_audit:
+  direct_count: 20
+  image_count: 20
+  text_count: 20
+  image_text_count: 50
+  seed: 20260722
+
+tokenization:
+  model_path: models/Qwen2.5-VL-3B-Instruct
+  max_seq_len: 1536
+  visual_token_target: 256
+  target_reserve: 96

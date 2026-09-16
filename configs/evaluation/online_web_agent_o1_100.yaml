@@ -1,0 +1,21 @@
+schema_version: online-web-agent-o1-100-evaluation-v1
+dataset: data/processed/unified_agent_eval_v1_1/dev.jsonl
+dataset_dir: data/processed/unified_agent_eval_v1_1
+test_embargo: data/manifests/unified_agent_eval_v1_1_test_embargo.json
+training_config: configs/protocol_sft/train_full_format_v1.yaml
+base_model_path: models/Qwen2.5-VL-3B-Instruct
+search_configs:
+  live: configs/environment/search_low_cost_live_o1_100.yaml
+  replay: configs/environment/search_replay_o1_100.yaml
+  frozen: configs/environment/search_frozen.yaml
+models:
+  sft: {stage: protocol_format_sft, adapter_path: models/protocol-sft}
+  reward_v21: {stage: reward_v21_full, adapter_path: models/reward-v2.1}
+sampling:
+  o0_per_task_type: 5
+  o1_per_task_type: 25
+  order: eval_id_ascending_within_task_type
+  task_types: [search_free, visual_search_required, text_search_required, mixed_search_required]
+budgets: {maximum_agent_turns: 3, maximum_total_tool_calls: 2, maximum_image_search_calls: 1, maximum_text_search_calls: 1}
+generation: {do_sample: false, num_beams: 1, temperature: null, top_p: null, top_k: null, max_new_tokens_per_turn: 128, batch_size: 1}
+boundaries: {frozen_test_access: false, training_allowed: false, reward_changes_allowed: false, pilot_is_model_selection: false}

@@ -1,0 +1,30 @@
+schema_version: grpo-stage2-frozen-dev-v1
+dataset: data/processed/unified_agent_eval_v1_1/dev.jsonl
+dataset_dir: data/processed/unified_agent_eval_v1_1
+environment_dir: data/processed/unified_agent_eval_v1_1/environment
+environment_manifest_sha256: 427761c3b704deef478398b8023eca1a108dcb9046a1f58e8dce6f37d6e9fc74
+test_embargo: data/manifests/unified_agent_eval_v1_1_test_embargo.json
+training_config: configs/protocol_sft/train_full_format_v1.yaml
+base_model_path: models/Qwen2.5-VL-3B-Instruct
+v21_manifest: outputs/grpo_reward_v21_full/run_manifest.json
+v21_baseline:
+  path: outputs/grpo_reward_v21_full_frozen_dev/dev/reward_v21
+  expected_model_id: reward_v21
+  checksum_root: outputs/grpo_reward_v21_full_frozen_dev
+  checksum_manifest: outputs/grpo_reward_v21_full_frozen_dev/files.sha256
+step0_output: outputs/grpo_stage2_step0_frozen_dev
+checkpoint_steps: [16, 32, 48, 64]
+step0_tolerance:
+  overall_em_v1: 0.005
+  overall_token_f1_v1: 0.005
+  search_required_em_v1: 0.007
+  search_required_token_f1_v1: 0.007
+historical_v21_expected:
+  overall_em_v1: 0.375000
+  overall_token_f1_v1: 0.427329
+  search_required_em_v1: 0.473333
+  search_required_token_f1_v1: 0.524942
+historical_metric_tolerance: 0.000001
+budgets: {maximum_agent_turns: 3, maximum_total_tool_calls: 2, maximum_image_search_calls: 1, maximum_text_search_calls: 1}
+generation: {do_sample: false, num_beams: 1, temperature: null, top_p: null, top_k: null, max_new_tokens_per_turn: 128, batch_size: 1}
+frozen_test_access: false

@@ -1,0 +1,39 @@
+schema_version: validated-master-pool-v0.2
+seed: 20260727
+
+gate:
+  schema_version: shared-executability-gate-v0.2
+  config_file: configs/data_quality/shared_executability_gate_v0_2.yaml
+  maximum_question_copy_ratio_without_entity: 0.85
+  require_evidence_reachability: true
+
+policy:
+  name: reject_first
+  repair_mode: reject_only
+  automatic_route_conversion: false
+  automatic_query_rewrite: false
+
+chain:
+  protocol_sft_schema: protocol-sft-v0.5
+
+source:
+  kind: FVQA Train
+  parquet_file: data/raw/fvqa/fvqa_train.parquet
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  previous_trajectory_path: data/processed/protocol_sft_v0_4/trajectories.jsonl
+  expected_parquet_sha256: "d23be97f4493846381f71c6953a29777fe1522aaf37942a26393605ffd78171f"
+  expected_cache_sha256: "b5e39e5504c1f9215c77a21b839cb923614bd26f405d383a944c754a725d9be6"
+
+image_search:
+  top_k: 3
+
+boundaries:
+  include_fvqa_train: true
+  include_fvqa_test: false
+  include_eval_sources: false
+
+output:
+  directory: data/processed/validated_master_pool_v0_2
+  manifest_file: data/manifests/validated_master_pool_v0_2_manifest.json
+  audit_file: data/manifests/validated_master_pool_v0_2_audit.json
+  hash_file: data/manifests/validated_master_pool_v0_2_files.sha256

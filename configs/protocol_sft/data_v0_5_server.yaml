@@ -1,0 +1,69 @@
+schema_version: protocol-sft-v0.5
+seed: 20260727
+
+source_pool:
+  schema_version: validated-master-pool-v0.2
+  gate_schema_version: shared-executability-gate-v0.2
+  directory: data/processed/validated_master_pool_v0_2
+  manifest_file: data/manifests/validated_master_pool_v0_2_manifest.json
+  audit_file: data/manifests/validated_master_pool_v0_2_audit.json
+  hash_file: data/manifests/validated_master_pool_v0_2_files.sha256
+
+historical_exposure:
+  train:
+    - data/processed/protocol_sft_v0_3/train.jsonl
+    - data/processed/protocol_sft_v0_4/train.jsonl
+  dev:
+    - data/processed/protocol_sft_v0_3/dev.jsonl
+    - data/processed/protocol_sft_v0_4/dev.jsonl
+  test:
+    - data/processed/protocol_sft_v0_3/test.jsonl
+
+historical_reserved:
+  test:
+    - data/processed/protocol_sft_v0_4/test.jsonl
+
+historical_manifests:
+  - data/processed/protocol_sft_v0_3/manifest.json
+  - data/processed/protocol_sft_v0_4/manifest.json
+
+policy:
+  reject_first: true
+  repair_mode: reject_only
+  automatic_route_conversion: false
+  automatic_query_rewrite: false
+
+route_targets:
+  text_search_answer:
+    minimum: 0
+    preferred: 40
+    maximum: 80
+  image_text_search_answer:
+    minimum: 0
+    preferred: 10
+    maximum: 30
+  direct_answer:
+    minimum: 200
+    preferred: 310
+    maximum: 500
+  image_search_answer:
+    minimum: 200
+    preferred: 290
+    maximum: 400
+
+targets:
+  state_action_examples: 1000
+  train_state_actions: 800
+  dev_state_actions: 100
+  test_state_actions: 100
+
+test:
+  embargoed: true
+  generate_preview: false
+  allow_selection_access: false
+
+output:
+  directory: data/processed/protocol_sft_v0_5
+  manifest_file: data/manifests/protocol_sft_v0_5_manifest.json
+  audit_file: data/manifests/protocol_sft_v0_5_audit.json
+  hash_file: data/manifests/protocol_sft_v0_5_files.sha256

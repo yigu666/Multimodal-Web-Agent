@@ -1,0 +1,111 @@
+{
+  "protocol_sft_dev_100": {
+    "action_type_accuracy": 0.7,
+    "answer_exact_match": 0.46153846153846156,
+    "exactly_one_action_rate": 1.0,
+    "macro_action_f1": 0.7864538395,
+    "malformed_rate": 0.0,
+    "protocol_valid_rate": 1.0
+  },
+  "frozen_dev_200": {
+    "reward_v21": {
+      "em": 0.375,
+      "missing_rate": 0.095,
+      "protocol_valid_rate": 0.925,
+      "search_em": 0.473333,
+      "search_token_f1": 0.524942,
+      "token_f1": 0.427329
+    },
+    "stage2_s2a_step16": {
+      "em": 0.385,
+      "missing_rate": 0.085,
+      "protocol_valid_rate": 0.935,
+      "search_em": 0.486667,
+      "search_token_f1": 0.541831,
+      "token_f1": 0.439996
+    }
+  },
+  "live_o1_100": {
+    "sample_count": 100,
+    "raw": {"em": 0.25, "token_f1": 0.3141},
+    "reward_v21_live": {"em": 0.28, "token_f1": 0.338},
+    "reward_v21_frozen": {"em": 0.36, "token_f1": 0.4418},
+    "reward_v21_replay": {"em": 0.28, "token_f1": 0.3447},
+    "reward_v21_notool": {"em": 0.02, "token_f1": 0.0267},
+    "route_subsets": {
+      "search_free": {
+        "n": 25,
+        "raw": {"em": 0.16, "token_f1": 0.18},
+        "reward_live": {"em": 0.16, "token_f1": 0.2095}
+      },
+      "visual_search_required": {
+        "n": 25,
+        "raw": {"em": 0.24, "token_f1": 0.3298},
+        "reward_live": {"em": 0.32, "token_f1": 0.41}
+      },
+      "text_search_required": {
+        "n": 25,
+        "raw": {"em": 0.32, "token_f1": 0.4033},
+        "reward_live": {"em": 0.44, "token_f1": 0.46}
+      },
+      "mixed_search_required": {
+        "n": 25,
+        "raw": {"em": 0.28, "token_f1": 0.3434},
+        "reward_live": {"em": 0.2, "token_f1": 0.2727}
+      },
+      "search_required_total": {
+        "n": 75,
+        "raw": {"em": 0.28, "token_f1": 0.3588},
+        "reward_live": {"em": 0.32, "token_f1": 0.3809},
+        "reward_notool": {"em": 0.0133, "token_f1": 0.0222}
+      }
+    },
+    "paired_bootstrap_raw_minus_reward_live": {
+      "samples": 10000,
+      "seed": 20260905,
+      "em": {"mean": -0.03, "ci95": [-0.13, 0.08]},
+      "token_f1": {"mean": -0.0239, "ci95": [-0.1222, 0.0738]}
+    }
+  },
+  "external_evqa_200_r5": {
+    "sample_count": 200,
+    "raw": {"em": 0.09, "token_f1": 0.1211},
+    "reward_v21": {
+      "em": 0.18,
+      "token_f1": 0.23,
+      "protocol_valid_rate": 0.905,
+      "tool_use_rate": 0.91,
+      "visual_to_answer_count": 169
+    },
+    "reward_minus_raw": {"em": 0.09, "token_f1": 0.1089},
+    "paired_bootstrap_reward_minus_raw": {
+      "em_ci95": [0.035, 0.145],
+      "token_f1_ci95": [0.0485, 0.1683]
+    },
+    "question_type_subsets": {
+      "automatic": {
+        "n": 169,
+        "raw": {"em": 0.1006, "token_f1": 0.128},
+        "reward_v21": {"em": 0.2012, "token_f1": 0.2428}
+      },
+      "templated": {
+        "n": 31,
+        "raw": {"em": 0.0323, "token_f1": 0.083},
+        "reward_v21": {"em": 0.0645, "token_f1": 0.1601}
+      }
+    }
+  },
+  "unified_200_raw_only": {"n": 200, "em": 0.205, "token_f1": 0.266},
+  "mmsearch_300_reward_only": {
+    "n": 300,
+    "em": 0.0933,
+    "token_f1": 0.135,
+    "raw_baseline_available": false
+  },
+  "comparison_boundaries": {
+    "raw_vs_reward": "complete trained-system difference, not tool causality",
+    "reward_live_vs_reward_notool": "tool-utility causal reference",
+    "unified_200": "raw-only; do not compare against O1-100 Reward",
+    "mmsearch_300": "Reward-only; no Raw-vs-Reward delta"
+  }
+}

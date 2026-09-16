@@ -1,255 +1,422 @@
 # Multimodal Web-Agent
 
-**English** | [简体中文](README_zh-CN.md)
+[English](README.md) | [简体中文](README_zh-CN.md)
 
-[![License: Apache-2.0](https://img.shields.io/badge/Code-Apache--2.0-blue.svg)](LICENSE)
-[![Python 3.10](https://img.shields.io/badge/Python-3.10-green.svg)](environment/environment.yml)
-[![Base model: Qwen2.5-VL-3B](https://img.shields.io/badge/Base-Qwen2.5--VL--3B-purple.svg)](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
+> Built with **Qwen2.5-VL-3B**, **Protocol-SFT**, and **GRPO**, Multimodal Web-Agent enables a multimodal model to autonomously call real visual/text Web Search and use external knowledge for visual question answering.
 
-> A reproducible multimodal web-agent pipeline built with protocol-format SFT and Reward-v2.1 GRPO on Qwen2.5-VL-3B-Instruct.
+**Multimodal Web-Agent** targets knowledge-intensive multimodal question answering.
 
-Multimodal Web-Agent receives an image and a question, then autonomously chooses one of three protocol actions:
+Unlike a fixed Image → Search → Answer pipeline, the model decides from the current image, question, and tool context whether to:
 
-```text
-<answer>...</answer>
-<search><img></search>
-<text_search>...</text_search>
-```
+- answer directly;
+- issue a visual Web Search;
+- issue a text Web Search;
+- consume the Tool Observation, continue reasoning, and produce the final answer.
 
-Search results are converted into tool observations and returned to the model for the next decision. The repository covers the successful path from public-data construction through Protocol-SFT, GRPO, optional Stage2 S2-A continuation, and frozen/replay/live evaluation.
+The project covers the complete path:
 
-## Highlights
-
-- **Autonomous multimodal tool use:** answer directly, invoke visual search, or invoke text search.
-- **Protocol-SFT + GRPO:** stable action serialization first, followed by answer-dominant policy optimization.
-- **Real and replayable Web search:** live evaluation plus frozen/replay modes for controlled comparisons.
-- **Search-aware metrics:** overall and search-required EM/F1 are reported separately.
-- **Compact evidence interface:** question-aware evidence selection for small multimodal agents.
-- **Auditable release:** fixed seeds, frozen contracts, checksums, selected LoRA adapters, and contract tests.
-
-## Agent workflow
-
-```text
-Image + Question
-       |
-       v
+~~~text
+Tool-Use data construction
+          ↓
+     Protocol-SFT
+          ↓
+          GRPO
+          ↓
 Multimodal Web-Agent
-       |
-       +-------- answer -------------------------------> Final answer
-       |
-       +-------- visual search ----+
-       |                            |
-       +-------- text search -------+--> Web evidence
-                                             |
-                                             v
-                                  Compact tool observation
-                                             |
-                                             +--> Next agent decision
-```
+          ↓
+      Real Web Search
+          ↓
+    Agent Evaluation
+~~~
 
-The flow is not a fixed `image -> search -> answer` pipeline. The model decides whether to search, which tool to use, how to consume the returned evidence, and when to answer.
+For 3B-scale multimodal models, the project also provides a compact **Agent-facing Evidence Interface** that makes retrieved Web evidence easier to consume.
 
-## Training pipeline
+---
 
-```text
+## ✨ Highlights
+
+- **Multimodal Web-Agent:** supports three autonomous actions: <code>ANSWER / VISUAL_SEARCH / TEXT_SEARCH</code>.
+- **Real Web Search:** executes real visual and text Web Search rather than simulated tool calling.
+- **Protocol-SFT + GRPO:** establishes reliable agent-protocol behavior first, then optimizes tool use and search-assisted answering.
+- **Search-aware evaluation:** reports Search-free and Search-required subsets separately to check whether search gains preserve base capability.
+- **External multimodal evaluation:** evaluates the final system on knowledge-intensive visual questions from E-VQA.
+- **Agent-facing Evidence Interface:** applies question-aware evidence selection, context anchoring, and compression to reduce the observation burden of a small model.
+- **Reproducible pipeline:** includes data builders, training entry points, Raw/NoTool/Frozen/Replay/Live-Web evaluation, and execution-contract tests.
+
+---
+
+## 🧠 Agent Overview
+
+The agent action space is:
+
+~~~text
+ANSWER
+VISUAL_SEARCH
+TEXT_SEARCH
+~~~
+
+Overall execution:
+
+~~~mermaid
+flowchart LR
+    A[Image + Question] --> B[Multimodal Web-Agent]
+    B --> C{Action}
+    C -->|ANSWER| G[Final Answer]
+    C -->|VISUAL_SEARCH| D[Visual Web Search]
+    C -->|TEXT_SEARCH| E[Text Web Search]
+    D --> F[Tool Observation]
+    E --> F
+    F --> B
+~~~
+
+When the model chooses a search action, the Agent Runtime executes the corresponding Web Search, organizes the returned evidence as a Tool Observation, and sends it back for the next decision. Search policy is learned by the model rather than hard-coded as an external search sequence.
+
+---
+
+## 🚀 Training Pipeline
+
+The public training path has two stages:
+
+~~~text
 Qwen2.5-VL-3B-Instruct
-          |
-          v
-   Protocol-SFT v0.1
-          |
-          v
- Reward-v2.1 GRPO
-          |
-          v
+          │
+          ▼
+     Protocol-SFT
+          │
+          ▼
+          GRPO
+          │
+          ▼
 Multimodal Web-Agent v0.1
-          |
-          +---- optional Stage2 S2-A short continuation
-```
+~~~
 
-Protocol-SFT teaches action serialization, query generation, observation consumption, and answer termination. Reward-v2.1 GRPO then optimizes the tool-use and answering policy. The optional S2-A run is retained only as a successful frozen-dev research checkpoint.
+The final GRPO agent is referred to publicly as **Multimodal Web-Agent v0.1**.
 
-## Released checkpoints
+Historical scripts, configurations, and artifacts may still contain identifiers such as <code>reward_v21</code>. Those identifiers preserve reproducibility of the original runs and are not public model names.
 
-| Directory | Stage | Intended use |
-|---|---|---|
-| `models/protocol-sft` | Protocol-format SFT | Protocol cold start and ablation |
-| `models/reward-v2.1` | Reward-v2.1 GRPO | Recommended public Web-Agent checkpoint |
-| `models/stage2-s2a-step16` | Stage2 S2-A, step 16 | Successful frozen-dev research checkpoint |
+### Stage 1 — Protocol-SFT
 
-Only LoRA adapters are included. Download the base model separately. Exact hashes are in [`models/CHECKSUMS.sha256`](models/CHECKSUMS.sha256).
+The first stage builds structured Tool-Use data from **FVQA** and applies Protocol-SFT to the base model.
 
-## Verified results
+It teaches:
 
-Only completed, contract-passing results are shown. Values are taken from [`results/key_results.json`](results/key_results.json).
+- Tool Action formatting;
+- visual/text search-query generation;
+- Tool Observation consumption;
+- continued decisions after search;
+- final-answer generation.
 
-### Protocol-SFT, Dev-100
+Public Protocol-SFT Dev-100 results:
 
-| Protocol valid | Exactly one action | Action accuracy | Macro action F1 | Malformed |
-|---:|---:|---:|---:|---:|
-| **100.0%** | **100.0%** | **70.0%** | **78.65%** | **0.0%** |
+| Metric | Protocol-SFT |
+|---|---:|
+| Protocol Validity | **100.0%** |
+| Exactly One Action | **100.0%** |
+| Action Accuracy | **70.0%** |
+| Macro Action F1 | **78.65%** |
+| Malformed Rate | **0.0%** |
 
-These are protocol-format diagnostics, not a claim of policy improvement.
+These metrics verify structured Tool-Use behavior and are not a claim of answer-policy improvement.
 
-### Frozen Dev-200: Reward-v2.1 and Stage2
+### Stage 2 — GRPO
 
-| Model | EM | Token F1 | Search EM | Search F1 |
-|---|---:|---:|---:|---:|
-| Reward-v2.1 | 37.50% | 42.73% | 47.33% | 52.49% |
-| Stage2 S2-A step 16 | **38.50%** | **44.00%** | **48.67%** | **54.18%** |
+Starting from Protocol-SFT, GRPO further optimizes:
 
-Stage2 is reported only as a frozen-dev result; this release does not claim that it is better than Reward-v2.1 in live deployment.
+- Tool-Use Policy;
+- search/answer decisions;
+- answer quality on Search-required examples;
+- Web-assisted answering.
 
-### O1-100 Live: Raw vs Reward-v2.1
+The formal GRPO run uses:
 
-All rows use the same sample IDs. Values are `EM / Token F1`.
+~~~text
+Prompts:           2,048
+Group Size:        4
+Total Rollouts:    8,192
+Optimizer Updates: 512
+~~~
 
-| Subset | N | Raw | Reward Live | Delta |
-|---|---:|---:|---:|---:|
-| Overall | 100 | 0.2500 / 0.3141 | **0.2800 / 0.3380** | +0.0300 / +0.0239 |
-| Search-free | 25 | 0.1600 / 0.1800 | **0.1600 / 0.2095** | +0.0000 / +0.0295 |
-| Visual-search-required | 25 | 0.2400 / 0.3298 | **0.3200 / 0.4100** | +0.0800 / +0.0802 |
-| Text-search-required | 25 | 0.3200 / 0.4033 | **0.4400 / 0.4600** | +0.1200 / +0.0567 |
-| Mixed-search-required | 25 | **0.2800 / 0.3434** | 0.2000 / 0.2727 | -0.0800 / -0.0708 |
-| Search-required total | 75 | 0.2800 / 0.3588 | **0.3200 / 0.3809** | +0.0400 / +0.0220 |
+Relative to Protocol-SFT, the largest gains appear on examples that require external information:
 
-For 10,000 paired bootstrap samples (seed `20260905`), the Raw-minus-Reward 95% intervals are `[-0.1300, 0.0800]` for EM and `[-0.1222, 0.0738]` for F1. Both include zero, so the overall O1 improvement is reported descriptively rather than as a statistically conclusive gain.
-
-Raw vs Reward measures the complete trained-system difference. Tool causality is instead assessed by holding Reward-v2.1 fixed:
-
-| Subset | Reward NoTool | Reward Live | Live - NoTool |
+| Metric | Protocol-SFT | Multimodal Web-Agent v0.1 | Δ |
 |---|---:|---:|---:|
-| Overall | 0.0200 / 0.0267 | 0.2800 / 0.3380 | +0.2600 / +0.3113 |
-| Search-required | 0.0133 / 0.0222 | 0.3200 / 0.3809 | +0.3067 / +0.3587 |
+| Overall EM | 33.50% | **37.50%** | +4.00pp |
+| Overall Token-F1 | 39.16% | **42.73%** | +3.57pp |
+| **Search-required EM** | 40.67% | **47.33%** | **+6.66pp** |
+| **Search-required Token-F1** | 45.97% | **52.49%** | **+6.52pp** |
 
-### External E-VQA-200 R5: Raw vs Reward-v2.1
+This indicates that the main GRPO benefit is concentrated in tool-use and external-knowledge scenarios rather than being only an overall-score shift.
 
-| System | EM | Token F1 |
+See [docs/TRAINING.md](docs/TRAINING.md) for the complete training contract and commands.
+
+---
+
+## 🌐 Real Web Search Evaluation
+
+Calling a tool does not by itself show that the tool improves the task. We therefore report two comparisons:
+
+1. **Raw → Final Agent:** the change from the complete training and agent system;
+2. **Live Web → NoTool:** the task-level utility of Web access while holding the same trained agent fixed.
+
+### O1-100 Live-Web
+
+O1-100 contains Search-free, Visual-search-required, Text-search-required, and Mixed-search-required examples.
+
+The headline table below focuses on Search-free and the two single-tool search-required subsets. All rows use the same sample IDs and report **EM / Token-F1 (%)**.
+
+| Subset | Raw | Multimodal Web-Agent v0.1 | Δ |
+|---|---:|---:|---:|
+| Search-free | 16.00 / 18.00 | **16.00 / 20.95** | +0.00 / +2.95 |
+| Visual-search-required | 24.00 / 32.98 | **32.00 / 41.00** | **+8.00 / +8.02** |
+| Text-search-required | 32.00 / 40.33 | **44.00 / 46.00** | **+12.00 / +5.67** |
+| **Single-tool Search-required** | 28.00 / 36.66 | **38.00 / 43.50** | **+10.00 / +6.85** |
+
+Single-tool Search-required combines the 25 visual-search-required and 25 text-search-required examples.
+
+The final agent keeps Search-free EM unchanged at **16.0%**, while improving visual-search-required EM from **24.0% to 32.0%** and text-search-required EM from **32.0% to 44.0%**.
+
+> Full O1 results—including Mixed-search-required, all Search-required samples, source splits, Frozen/Replay conditions, and bootstrap statistics—are reported in [docs/RESULTS.md](docs/RESULTS.md).
+
+### Web Tool Utility: Live vs NoTool
+
+Raw versus the final agent includes both training and system changes, so it is not a tool-only causal comparison. To isolate Web utility, we hold **Multimodal Web-Agent v0.1** fixed and only disable Web access:
+
+| Condition | EM | Token-F1 |
 |---|---:|---:|
-| Raw Qwen2.5-VL-3B-Instruct | 9.00% | 12.11% |
-| Reward-v2.1 R5 hybrid context anchor | **18.00%** | **23.00%** |
-| Delta | **+9.00 pp** | **+10.89 pp** |
+| NoTool | 1.33% | 2.22% |
+| Live Web | **32.00%** | **38.09%** |
+| Gain | **+30.67pp** | **+35.87pp** |
 
-Paired bootstrap 95% intervals for Reward-minus-Raw are `[+3.50, +14.50]` percentage points for EM and `[+4.85, +16.83]` points for F1. R5 protocol validity is 90.5%, tool-use rate is 91.0%, and 169/200 episodes follow the visual-search-to-answer route.
+Thus, Raw → Final Agent measures the complete training/system difference, while Same Agent: Live Web → NoTool measures task-level Web-tool utility.
 
-## Agent-facing evidence interface
+---
 
-For a small multimodal agent, retrieving relevant evidence is not sufficient: the evidence must also fit the model's usable context. R5 uses a hybrid context anchor and question-aware selection:
+## 🖼️ E-VQA: External-Knowledge Multimodal Evaluation
 
-```text
-Web retrieval
-      |
-      v
-Evidence selection
-      |
-      v
-Question-aware compression + short context anchor
-      |
-      v
-Compact observation (<= 1200 characters)
-```
+To test the system on an external visual-question distribution, we use a 200-sample single-hop Agent-compatible subset of E-VQA.
 
-R5 performs no new training or reinforcement learning and does not mutate model parameters. E-VQA-200 was used for repeated evidence-interface engineering, so a fresh unseen holdout is recommended for future generalization claims.
+E-VQA emphasizes:
 
-See [`docs/RESULTS.md`](docs/RESULTS.md) for metric definitions and the full result boundary.
+- fine-grained visual-entity understanding;
+- external encyclopedic knowledge;
+- joint use of image information and retrieved evidence.
 
-## Reproduce the project
+We therefore call it **External-Knowledge Multimodal Evaluation**, rather than labeling it as another Search-required split.
 
-All commands below run from the repository root on Linux. The verified runtime used Python 3.10.18 and CUDA 12.1 PyTorch packages. Keep model and dataset caches inside the repository if the home/system disk is space-constrained.
+### Raw → Final Agent
 
-### 1. Clone the repository and fetch model files
+On the same 200 examples:
 
-```bash
+| Model | EM | Token-F1 |
+|---|---:|---:|
+| Raw Qwen2.5-VL-3B | 9.00% | 12.11% |
+| **Multimodal Web-Agent v0.1** | **18.00%** | **23.00%** |
+| Δ | **+9.00pp** | **+10.89pp** |
+
+Paired bootstrap 95% confidence intervals:
+
+~~~text
+EM:
++9.00pp
+95% CI: [+3.50pp, +14.50pp]
+
+Token-F1:
++10.89pp
+95% CI: [+4.85pp, +16.83pp]
+~~~
+
+The final system obtains:
+
+- EM: **9.0% → 18.0%**;
+- Token-F1: **12.11% → 23.0%**;
+- Protocol Validity: **90.5%**;
+- Tool-use Rate: **91.0%**.
+
+See [docs/RESULTS.md](docs/RESULTS.md) and [docs/EVALUATION.md](docs/EVALUATION.md) for full statistics and staged commands.
+
+> **Evaluation note.** E-VQA-200 was also used during Evidence Interface engineering. We therefore report it as an external Agent-compatible evaluation/development set, not as an untouched final test set. A new unseen holdout should be used for a stricter generalization claim after the system is frozen.
+
+---
+
+## 🔎 Agent-facing Evidence Interface
+
+For a small multimodal agent, retrieving correct evidence does not guarantee that the model can consume it effectively.
+
+The final interface is:
+
+~~~mermaid
+flowchart LR
+    A[Web Retrieval] --> B[Question-Aware Evidence Selection]
+    B --> C[Short Context Anchor]
+    C --> D[Compact Tool Observation]
+    D --> E[Multimodal Web-Agent]
+~~~
+
+The model-visible Tool Observation is reduced from approximately:
+
+~~~text
+~2.5K characters
+        ↓
+~0.9K characters
+~~~
+
+| Metric | Long Evidence | Compact Evidence Interface |
+|---|---:|---:|
+| Protocol Validity | 51.0% | **90.5%** |
+| EM | 6.0% | **18.0%** |
+| Token-F1 | 7.78% | **23.0%** |
+
+R5 performs no new training or reinforcement learning and does not modify model parameters. It demonstrates that tool quality is both a retrieval problem and an interface problem: evidence selection, context compression, and semantic grounding are needed after Web retrieval.
+
+---
+
+## 📊 Key Results
+
+| Stage | Metric | Before / Raw | Final |
+|---|---|---:|---:|
+| Protocol-SFT | Protocol Validity | — | **100.0%** |
+| Protocol-SFT | Action Accuracy | — | **70.0%** |
+| GRPO | Search-required EM | 40.67% | **47.33%** |
+| GRPO | Search-required Token-F1 | 45.97% | **52.49%** |
+| O1 Live-Web | Visual-search-required EM | 24.0% | **32.0%** |
+| O1 Live-Web | Text-search-required EM | 32.0% | **44.0%** |
+| O1 Live-Web | Single-tool Search-required EM | 28.0% | **38.0%** |
+| O1 Live-Web | Search-free EM | 16.0% | **16.0%** |
+| E-VQA-200 | EM | 9.0% | **18.0%** |
+| E-VQA-200 | Token-F1 | 12.11% | **23.0%** |
+| Evidence Interface | Protocol Validity | 51.0% | **90.5%** |
+
+Detailed results and comparison boundaries are in [docs/RESULTS.md](docs/RESULTS.md).
+
+---
+
+## 🏷️ Model Naming
+
+Public model names are:
+
+| Public Name | Description |
+|---|---|
+| **Protocol-SFT v0.1** | The first-stage model for Tool-Use Protocol cold-start |
+| **Multimodal Web-Agent v0.1** | The final agent trained from Protocol-SFT with GRPO |
+
+To preserve historical runs, code and configuration may still contain:
+
+~~~text
+reward_v21
+grpo_reward_v21
+reward_v2_1
+~~~
+
+These are implementation identifiers, not separate public model names. The optional Stage2 research checkpoint is documented separately in [docs/MODELS.md](docs/MODELS.md) and [docs/RESULTS.md](docs/RESULTS.md); it is not part of the recommended public path.
+
+---
+
+## ⚡ Quick Start
+
+### 1. Clone
+
+~~~bash
 git clone https://github.com/yigu666/Multimodal-Web-Agent.git
 cd Multimodal-Web-Agent
-git lfs install
-git lfs pull
-```
+~~~
 
-### 2. Create the environment and run tests
+### 2. Create the environment
 
-```bash
+~~~bash
 conda env create -f environment/environment.yml
 conda activate multimodal-web-agent
+
 python -m pip install -e . --no-deps
+~~~
 
+### 3. Verify the public code
+
+~~~bash
 pytest -q
-sha256sum -c models/CHECKSUMS.sha256
-```
+~~~
 
-The curated release suite is expected to report `15 passed`.
+See [docs/INSTALL.md](docs/INSTALL.md) for dependency details and runtime notes.
 
-### 3. Download the base model into the project
+---
 
-```bash
+## 📥 Base Model
+
+The base model is not redistributed with this repository. Download it separately into the project directory:
+
+~~~bash
 export MWA_ROOT="$PWD"
 export HF_HOME="$MWA_ROOT/.cache/huggingface"
 export HF_HUB_CACHE="$HF_HOME/hub"
 
 hf download Qwen/Qwen2.5-VL-3B-Instruct \
   --local-dir "$MWA_ROOT/models/Qwen2.5-VL-3B-Instruct"
-```
+~~~
 
-The base model is intentionally not committed to Git.
+If disk space is limited, point the Hugging Face cache explicitly at a large project volume.
 
-### 4. Download FVQA training inputs
+---
 
-```bash
+## 📚 Data
+
+Raw datasets are not redistributed.
+
+Protocol-SFT and GRPO training inputs are built from **FVQA** and can be downloaded from Hugging Face:
+
+~~~bash
 mkdir -p "$MWA_ROOT/data/raw/fvqa"
+
 hf download lmms-lab/FVQA \
   fvqa_train.parquet \
   fvqa_train_image_search_results_cache.pkl \
   --repo-type dataset \
   --revision bb4a4ff4c9c3fd0382d11f5d7fccd66d0b8428b5 \
   --local-dir "$MWA_ROOT/data/raw/fvqa"
-```
+~~~
 
-No dataset is distributed in this repository. Do not unpickle files obtained from untrusted sources.
+See [docs/DATA.md](docs/DATA.md) for downloads, cache audits, Protocol-SFT builders, and E-VQA public inputs.
 
-### 5. Build the Protocol-SFT dataset
+> Never unpickle files from an untrusted source.
 
-```bash
-python scripts/audit_fvqa_cache.py \
-  --root data/raw/fvqa \
-  --output-dir data/manifests/fvqa_cache_audit \
-  --splits train
+---
 
-python scripts/build_protocol_sft_v0.py --config configs/protocol_sft/data_v0_server.yaml
-python scripts/build_protocol_sft_v0.py --config configs/protocol_sft/data_v0_1_server.yaml
-python scripts/build_protocol_sft_v0.py --config configs/protocol_sft/data_v0_2_server.yaml
-python scripts/build_protocol_sft_v0.py --config configs/protocol_sft/data_v0_3_server.yaml
-python scripts/build_protocol_sft_v0_4.py --config configs/protocol_sft/data_v0_4_server.yaml
-python scripts/build_validated_master_pool.py --config configs/data_quality/validated_master_pool_v0_2_server.yaml
-python scripts/build_protocol_sft_v0_5.py --config configs/protocol_sft/data_v0_5_server.yaml
-python scripts/build_protocol_format_sft_v1.py --config configs/protocol_sft/data_format_v1.yaml
-python scripts/audit_protocol_format_sft_v1.py \
-  --data-dir data/processed/protocol_format_sft_v1 \
-  --output data/manifests/protocol_format_sft_v1_audit.json
-```
+## 🏋️ Training
 
-The final format-only view contains 900 training and 100 development state-action examples. Training does not create or read a test split.
+### Protocol-SFT
 
-### 6. Run Protocol-SFT
+Inspect the loss mask before training:
 
-```bash
+~~~bash
 export CUDA_VISIBLE_DEVICES=0
 
 python scripts/inspect_protocol_sft_mask.py \
-  --project-root "$MWA_ROOT" \
+  --project-root "$PWD" \
   --config configs/protocol_sft/train_full_format_v1.yaml \
   --all-splits
+~~~
 
+Run Protocol-SFT:
+
+~~~bash
 python scripts/train_protocol_sft.py \
-  --project-root "$MWA_ROOT" \
+  --project-root "$PWD" \
   --config configs/protocol_sft/train_full_format_v1.yaml
-```
+~~~
 
-### 7. Run Reward-v2.1 GRPO
+### GRPO
 
-```bash
+Build and audit the prompt pool:
+
+~~~bash
 python scripts/build_grpo_prompt_pool_v1.py
+
 python scripts/audit_grpo_prompt_pool.py \
   --input data/processed/grpo_prompt_pool_v1/train.jsonl \
   --output data/manifests/grpo_prompt_pool_v1_audit.json
+~~~
+
+Prepare the reward/training contract:
+
+~~~bash
 python scripts/build_reward_v2_coverage_cache.py \
   --config configs/grpo/reward_v2_1_answer_dominant_positive.yaml
 
@@ -258,96 +425,201 @@ python scripts/run_grpo_reward_v2_text_exploration_smoke.py \
   --output-dir outputs/grpo_reward_v2_text_exploration_smoke_128
 
 python scripts/prepare_reward_v21_contract.py
+~~~
+
+Run formal GRPO:
+
+~~~bash
 python scripts/run_grpo_reward_v2_full.py \
   --training-config configs/grpo/reward_v21_full_server.yaml \
   --output-dir outputs/grpo_reward_v21_full
-```
+~~~
 
-The formal GRPO run uses 2,048 prompts, group size 4, 8,192 rollouts, and 512 optimizer updates. It fails closed if a frozen artifact changes, a non-finite value appears, the protocol alignment check fails, or a visual/projector parameter changes.
+Script names retain historical experiment identifiers so the verified runs remain reproducible. The public final model name is **Multimodal Web-Agent v0.1**.
 
-### 8. Run evaluation
+See [docs/TRAINING.md](docs/TRAINING.md) for the complete procedure.
 
-For Live O1-100, set the required credentials locally and never commit them:
+---
 
-```bash
+## 📏 Evaluation
+
+### O1 Live-Web
+
+Live mode requires local Web Search credentials. **Never commit API keys to Git.**
+
+~~~bash
 export SERPER_API_KEY="..."
 export SERPAPI_API_KEY="..."
 
 python scripts/prepare_online_o1_100.py \
   --config configs/evaluation/online_web_agent_o1_100.yaml
+
 python scripts/run_online_web_agent_v1.py \
   --config configs/evaluation/online_web_agent_o1_100.yaml \
   --phase o1 \
   --backend-mode live \
   --models sft reward_v21 \
   --output-root outputs/online_web_agent_o1_public
-```
+~~~
 
-To reproduce the public external E-VQA path through R5, download the official metadata into this project and run every frozen stage in order:
+If a frozen evidence snapshot is available, use Replay or Frozen mode to reduce new remote requests. Live-Web responses change over time; deterministic decoding cannot make third-party search responses immutable.
 
-```bash
+### Raw baseline
+
+~~~bash
+export MWA_BASE_MODEL="$PWD/models/Qwen2.5-VL-3B-Instruct"
+
+python evaluation/final_raw_parametric_knowledge_baseline/run_raw_baseline.py
+~~~
+
+### E-VQA
+
+Download the public inputs first:
+
+~~~bash
 bash scripts/download_evqa_public_inputs.sh
-export DASHSCOPE_API_KEY="..."
+~~~
 
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py prepare
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py acquire
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py notool protocol_sft
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py notool reward_v21
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py agent protocol_sft
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py agent reward_v21
-python evaluation/final_evqa_agent_compatible_external/run_evqa_r1.py finalize
-python evaluation/final_evqa_enriched_visual_agent_r2k/download_kb.py
-python evaluation/final_evqa_enriched_visual_agent_r2k/extract_kb.py
-python evaluation/final_evqa_enriched_visual_agent_r2k/run_evqa_r2k.py
-python evaluation/final_evqa_r2k_compact_r3/run_evqa_r3.py
-python evaluation/final_evqa_question_aware_compact_r4/run_evqa_r4.py
-python evaluation/final_evqa_r5_hybrid_context_anchor/run_evqa_r5.py
-```
+E-VQA is a staged, fail-closed evaluation. R5 consumes the frozen artifacts produced by preceding stages.
 
-Use `--backend-mode replay` with a previously frozen evidence snapshot to avoid new remote requests. Live-Web retrieval can change over time; deterministic decoding does not make external search responses immutable. Dataset preparation, replay requirements, the optional Stage2 S2-A path, and E-VQA commands are documented in:
+See [docs/EVALUATION.md](docs/EVALUATION.md) for the complete R1 → R5 procedure. Benchmark images, KB files, generated evidence, and episode outputs remain outside Git.
 
-- [`docs/DATA.md`](docs/DATA.md)
-- [`docs/TRAINING.md`](docs/TRAINING.md)
-- [`docs/EVALUATION.md`](docs/EVALUATION.md)
+---
 
-## Repository layout
+## 🧪 Reproducibility
 
-```text
+The release keeps execution contracts and audits at key stages:
+
+- fixed data and artifact hashes;
+- Protocol and loss-mask checks;
+- GRPO prompt-pool audit;
+- Frozen and Replay evaluation;
+- Raw baseline;
+- fail-closed staged E-VQA;
+- synthetic and contract tests;
+- machine-readable headline results.
+
+Headline results are also stored in:
+
+~~~text
+results/key_results.json
+~~~
+
+Detailed interpretation is in [docs/RESULTS.md](docs/RESULTS.md).
+
+---
+
+## 📁 Repository Structure
+
+~~~text
 Multimodal-Web-Agent/
-├── configs/       # Data, training, environment, and evaluation contracts
-├── docs/          # Detailed reproduction and release documentation
-├── environment/   # Conda and pip dependency pins
-├── evaluation/    # External E-VQA and raw-baseline pipelines
-├── models/        # Three selected LoRA adapters and checksums
-├── results/       # Machine-readable verified headline results
-├── scripts/       # Public data/training/evaluation entry points
-├── src/           # Agent, environment, training, and metric implementations
-└── tests/         # Synthetic and contract tests
-```
+├── configs/                 # Data, training, and evaluation configurations
+├── docs/                    # Install, data, training, evaluation, and results docs
+├── environment/             # Conda and pip environment definitions
+├── evaluation/              # E-VQA and Raw-baseline evaluation flows
+├── models/                  # LoRA adapters and checksums
+├── results/                 # Machine-readable verified headline results
+├── scripts/                 # Data, training, and evaluation entry points
+├── src/
+│   └── multimodal_web_agent/
+│                              # Agent, environment, training, and metrics
+├── tests/                   # Synthetic and contract tests
+├── LICENSE
+├── MODEL_LICENSE-QWEN
+├── NOTICE
+├── pyproject.toml
+├── README.md
+└── README_zh-CN.md
+~~~
 
-## Release boundary
+---
 
-Included: deterministic public-data construction, Protocol-SFT, Reward-v2.1 GRPO, the successful S2-A short checkpoint, frozen/replay/live evaluation code, compact E-VQA evaluation, selected adapters, and tests.
+## 📖 Documentation
 
-Excluded: raw/processed datasets, generated trajectories, Web caches, API credentials, host-specific paths, conversations, private logs, the Qwen base model, OPD/OPD2, later unsuccessful reward variants, failed checkpoints, and blocked or inconclusive branches. See [`docs/RELEASE_AUDIT.md`](docs/RELEASE_AUDIT.md).
+Recommended reading order:
 
-## Acknowledgements
+1. [docs/INSTALL.md](docs/INSTALL.md) — environment and dependencies
+2. [docs/DATA.md](docs/DATA.md) — data downloads and construction
+3. [docs/TRAINING.md](docs/TRAINING.md) — Protocol-SFT and GRPO
+4. [docs/EVALUATION.md](docs/EVALUATION.md) — O1, Raw, and E-VQA
+5. [docs/RESULTS.md](docs/RESULTS.md) — complete results and comparison boundaries
+6. [docs/RELEASE_AUDIT.md](docs/RELEASE_AUDIT.md) — release audit information
 
-This project builds on [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct), [Multimodal Search-R1](https://github.com/EvolvingLMMs-Lab/multimodal-search-r1), [InfoSeek](https://github.com/open-vision-language/infoseek), FVQA, and BGE-M3.
+---
 
-## License
+## 📌 Public Release Scope
 
-Original project code is released under Apache-2.0; see [`LICENSE`](LICENSE). The included LoRA adapters are derivatives of Qwen2.5-VL-3B-Instruct and are governed by the Qwen Research License, including its non-commercial restriction and redistribution requirements. Read [`MODEL_LICENSE-QWEN`](MODEL_LICENSE-QWEN) and [`NOTICE`](NOTICE) before using or redistributing model files.
+This repository publishes the reproducible core training and evaluation path:
 
-Improved using Qwen.
+- public-data acquisition and construction code;
+- Protocol-SFT;
+- GRPO;
+- the Multimodal Web-Agent runtime;
+- Real/Frozen/Replay Web evaluation;
+- the Raw parametric baseline;
+- staged E-VQA evaluation;
+- result aggregation and evaluation code;
+- synthetic and contract tests.
 
-## Project status
+The public release does not include:
 
-```text
-Base model:     Qwen2.5-VL-3B-Instruct
-Protocol model: Protocol-SFT v0.1
-Final agent:    Multimodal Web-Agent v0.1 (Reward-v2.1)
-Training:       Protocol-SFT -> Reward-v2.1 GRPO
-Tools:          Visual Web Search + Text Web Search
-Evaluation:     FVQA + O1 Live/Frozen/Replay + E-VQA R5
-```
+- private API credentials;
+- raw or fully processed datasets;
+- raw Web caches;
+- private logs or conversations;
+- host-specific files and paths;
+- Qwen base-model weights;
+- non-public intermediate research artifacts.
+
+See [docs/RELEASE_AUDIT.md](docs/RELEASE_AUDIT.md) for release boundaries. The recommended public model is Multimodal Web-Agent v0.1; historical reward identifiers remain only where needed by reproducibility scripts.
+
+---
+
+## 🙏 Acknowledgements
+
+This project uses or references:
+
+- [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
+- [Multimodal Search-R1](https://github.com/EvolvingLMMs-Lab/multimodal-search-r1)
+- [Search-R1](https://github.com/PeterGriffinJin/Search-R1)
+- [FVQA](https://huggingface.co/datasets/lmms-lab/FVQA)
+- InfoSeek
+- E-VQA
+- [BGE-M3](https://huggingface.co/BAAI/bge-m3)
+
+Where applicable, external code is identified as adapted from its upstream project; related work and benchmarks are cited as inspiration or evaluation sources.
+
+---
+
+## 📄 License
+
+Original repository code is released under the **Apache License 2.0**; see [LICENSE](LICENSE).
+
+The base model and derived model files are governed by the applicable Qwen terms, including the [official Qwen Research License](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/blob/main/LICENSE). See [MODEL_LICENSE-QWEN](MODEL_LICENSE-QWEN) and [NOTICE](NOTICE) before using or redistributing model-related files.
+
+---
+
+## 🌟 Current Release
+
+~~~text
+Base Model:
+Qwen2.5-VL-3B-Instruct
+
+Protocol Model:
+Protocol-SFT v0.1
+
+Final Agent:
+Multimodal Web-Agent v0.1
+
+Training:
+Protocol-SFT → GRPO
+
+Tools:
+Visual Web Search + Text Web Search
+
+Main Evaluation:
+FVQA + O1 Live/Frozen/Replay + E-VQA
+~~~
+
+If this project is useful for your research or engineering work, please consider starring the repository, opening an issue, or contributing improvements.
+

@@ -1,63 +1,63 @@
 # Multimodal Web-Agent
 
-[English](README.md) | [简体中文](README_zh-CN.md)
+[English](README.md) | **简体中文**
 
-> Built with **Qwen2.5-VL-3B**, **Protocol-SFT**, and **GRPO**, Multimodal Web-Agent enables a multimodal model to autonomously call real visual/text Web Search and use external knowledge for visual question answering.
+> 基于 **Qwen2.5-VL-3B**、**Protocol-SFT** 与 **GRPO** 构建的 Multimodal Web-Agent，使多模态模型能够自主调用真实视觉/文本 Web Search，并利用外部知识完成视觉问答。
 
-**Multimodal Web-Agent** targets knowledge-intensive multimodal question answering.
+**Multimodal Web-Agent** 面向知识密集型多模态问答场景。
 
-Unlike a fixed Image → Search → Answer pipeline, the model decides from the current image, question, and tool context whether to:
+与固定的 `Image → Search → Answer` 流水线不同，本项目让模型根据当前图像、问题和已有工具信息自主决定：
 
-- answer directly;
-- issue a visual Web Search;
-- issue a text Web Search;
-- consume the Tool Observation, continue reasoning, and produce the final answer.
+* 直接回答；
+* 发起视觉 Web Search；
+* 发起文本 Web Search；
+* 利用 Tool Observation 继续决策并生成最终答案。
 
-The project covers the complete path:
+项目完整覆盖：
 
-~~~text
-Tool-Use data construction
-          ↓
-     Protocol-SFT
-          ↓
-          GRPO
-          ↓
+```text
+Tool-Use 数据构建
+        ↓
+Protocol-SFT
+        ↓
+GRPO
+        ↓
 Multimodal Web-Agent
-          ↓
-      Real Web Search
-          ↓
-    Agent Evaluation
-~~~
+        ↓
+Real Web Search
+        ↓
+Agent Evaluation
+```
 
-For 3B-scale multimodal models, the project also provides a compact **Agent-facing Evidence Interface** that makes retrieved Web evidence easier to consume.
+同时针对 3B 级多模态模型设计了紧凑的 **Agent-facing Evidence Interface**，用于提高模型对 Web Evidence 的利用效率。
 
 ---
 
 ## ✨ Highlights
 
-- **Multimodal Web-Agent:** supports three autonomous actions: <code>ANSWER / VISUAL_SEARCH / TEXT_SEARCH</code>.
-- **Real Web Search:** executes real visual and text Web Search rather than simulated tool calling.
-- **Protocol-SFT + GRPO:** establishes reliable agent-protocol behavior first, then optimizes tool use and search-assisted answering.
-- **Search-aware evaluation:** reports Search-free and Search-required subsets separately to check whether search gains preserve base capability.
-- **External multimodal evaluation:** evaluates the final system on knowledge-intensive visual questions from E-VQA.
-- **Agent-facing Evidence Interface:** applies question-aware evidence selection, context anchoring, and compression to reduce the observation burden of a small model.
-- **Reproducible pipeline:** includes data builders, training entry points, Raw/NoTool/Frozen/Replay/Live-Web evaluation, and execution-contract tests.
+* **Multimodal Web-Agent**：支持 `ANSWER / VISUAL_SEARCH / TEXT_SEARCH` 三类自主动作。
+* **Real Web Search**：支持真实视觉与文本 Web Search，而非仅模拟 Tool Calling。
+* **Protocol-SFT + GRPO**：先完成 Agent 协议冷启动，再通过强化学习优化工具使用策略和搜索增强回答能力。
+* **Search-aware Evaluation**：分别评估 Search-free 与 Search-required 场景，观察搜索能力提升是否影响模型基础能力。
+* **External Multimodal Evaluation**：在 E-VQA 外部知识型视觉问答数据上验证最终系统。
+* **Agent-facing Evidence Interface**：对检索结果进行 Question-Aware Evidence Selection、Context Anchoring 与压缩，降低小模型 Tool Observation 负担。
+* **Reproducible Pipeline**：提供数据构建、训练、Raw/NoTool/Frozen/Replay/Live-Web 评测和执行契约测试。
 
 ---
 
 ## 🧠 Agent Overview
 
-The agent action space is:
+Agent 的核心动作空间为：
 
-~~~text
+```text
 ANSWER
 VISUAL_SEARCH
 TEXT_SEARCH
-~~~
+```
 
-Overall execution:
+整体运行逻辑：
 
-~~~mermaid
+```mermaid
 flowchart LR
     A[Image + Question] --> B[Multimodal Web-Agent]
     B --> C{Action}
@@ -67,155 +67,208 @@ flowchart LR
     D --> F[Tool Observation]
     E --> F
     F --> B
-~~~
+```
 
-When the model chooses a search action, the Agent Runtime executes the corresponding Web Search, organizes the returned evidence as a Tool Observation, and sends it back for the next decision. Search policy is learned by the model rather than hard-coded as an external search sequence.
+当模型选择搜索动作后，Agent Runtime 会实际执行对应的 Web Search，并将返回结果组织为 Tool Observation，再交给模型进行后续决策。
+
+因此工具使用策略由模型自身决定，而不是由外部程序固定指定搜索流程。
 
 ---
 
 ## 🚀 Training Pipeline
 
-The public training path has two stages:
+项目采用两阶段训练：
 
-~~~text
+```text
 Qwen2.5-VL-3B-Instruct
           │
           ▼
      Protocol-SFT
           │
           ▼
-          GRPO
+         GRPO
           │
           ▼
 Multimodal Web-Agent v0.1
-~~~
+```
 
-The final GRPO agent is referred to publicly as **Multimodal Web-Agent v0.1**.
+公开文档中统一将最终 GRPO Agent 称为：
 
-Historical scripts, configurations, and artifacts may still contain identifiers such as <code>reward_v21</code>. Those identifiers preserve reproducibility of the original runs and are not public model names.
+> **Multimodal Web-Agent v0.1**
+
+部分代码、配置文件和历史 artifact 中仍保留 `reward_v21` 等实验标识，以保证已有实验和复现脚本不被破坏；这些标识不作为公开模型名称。
+
+---
 
 ### Stage 1 — Protocol-SFT
 
-The first stage builds structured Tool-Use data from **FVQA** and applies Protocol-SFT to the base model.
+第一阶段基于 **FVQA** 构建结构化 Tool-Use 数据，对基础模型进行 Protocol-SFT。
 
-It teaches:
+该阶段主要完成 Agent protocol cold-start，使模型学习：
 
-- Tool Action formatting;
-- visual/text search-query generation;
-- Tool Observation consumption;
-- continued decisions after search;
-- final-answer generation.
+* Tool Action 格式；
+* Visual / Text Search Query 生成；
+* Tool Observation 消费；
+* 搜索后的继续决策；
+* 最终答案生成。
 
-Public Protocol-SFT Dev-100 results:
+公开 Protocol-SFT Dev-100 结果：
 
-| Metric | Protocol-SFT |
-|---|---:|
-| Protocol Validity | **100.0%** |
-| Exactly One Action | **100.0%** |
-| Action Accuracy | **70.0%** |
-| Macro Action F1 | **78.65%** |
-| Malformed Rate | **0.0%** |
+| Metric             | Protocol-SFT |
+| ------------------ | -----------: |
+| Protocol Validity  |   **100.0%** |
+| Exactly One Action |   **100.0%** |
+| Action Accuracy    |    **70.0%** |
+| Macro Action F1    |   **78.65%** |
+| Malformed Rate     |     **0.0%** |
 
-These metrics verify structured Tool-Use behavior and are not a claim of answer-policy improvement.
+Protocol-SFT 的目标是让原始 VLM 稳定掌握结构化 Tool-Use Protocol，为后续策略优化提供可靠初始化。
+
+---
 
 ### Stage 2 — GRPO
 
-Starting from Protocol-SFT, GRPO further optimizes:
+第二阶段从 Protocol-SFT 模型初始化，通过 **GRPO** 进一步优化：
 
-- Tool-Use Policy;
-- search/answer decisions;
-- answer quality on Search-required examples;
-- Web-assisted answering.
+* Tool-Use Policy；
+* Search / Answer 决策；
+* Search-required 场景下的回答质量；
+* Web-assisted Answering。
 
-The formal GRPO run uses:
+正式 GRPO 训练规模为：
 
-~~~text
+```text
 Prompts:           2,048
 Group Size:        4
 Total Rollouts:    8,192
 Optimizer Updates: 512
-~~~
+```
 
-Relative to Protocol-SFT, the largest gains appear on examples that require external information:
+相较 Protocol-SFT，GRPO 在真正需要外部信息的 **Search-required** 样本上提升更加明显：
 
-| Metric | Protocol-SFT | Multimodal Web-Agent v0.1 | Δ |
-|---|---:|---:|---:|
-| Overall EM | 33.50% | **37.50%** | +4.00pp |
-| Overall Token-F1 | 39.16% | **42.73%** | +3.57pp |
-| **Search-required EM** | 40.67% | **47.33%** | **+6.66pp** |
-| **Search-required Token-F1** | 45.97% | **52.49%** | **+6.52pp** |
+| Metric                       | Protocol-SFT | Multimodal Web-Agent v0.1 |           Δ |
+| ---------------------------- | -----------: | ------------------------: | ----------: |
+| Overall EM                   |       33.50% |                **37.50%** |     +4.00pp |
+| Overall Token-F1             |       39.16% |                **42.73%** |     +3.57pp |
+| **Search-required EM**       |       40.67% |                **47.33%** | **+6.66pp** |
+| **Search-required Token-F1** |       45.97% |                **52.49%** | **+6.52pp** |
 
-This indicates that the main GRPO benefit is concentrated in tool-use and external-knowledge scenarios rather than being only an overall-score shift.
+这表明 GRPO 的主要收益集中在需要外部知识和工具使用的场景，而不仅是整体指标变化。
 
-See [docs/TRAINING.md](docs/TRAINING.md) for the complete training contract and commands.
+完整训练配置与执行方式见：
+
+* [`docs/TRAINING.md`](docs/TRAINING.md)
 
 ---
 
 ## 🌐 Real Web Search Evaluation
 
-Calling a tool does not by itself show that the tool improves the task. We therefore report two comparisons:
+模型会调用工具并不意味着工具真正改善了最终任务。
 
-1. **Raw → Final Agent:** the change from the complete training and agent system;
-2. **Live Web → NoTool:** the task-level utility of Web access while holding the same trained agent fixed.
+因此项目分别评估：
 
-### O1-100 Live-Web
-
-O1-100 contains Search-free, Visual-search-required, Text-search-required, and Mixed-search-required examples.
-
-The headline table below focuses on Search-free and the two single-tool search-required subsets. All rows use the same sample IDs and report **EM / Token-F1 (%)**.
-
-| Subset | Raw | Multimodal Web-Agent v0.1 | Δ |
-|---|---:|---:|---:|
-| Search-free | 16.00 / 18.00 | **16.00 / 20.95** | +0.00 / +2.95 |
-| Visual-search-required | 24.00 / 32.98 | **32.00 / 41.00** | **+8.00 / +8.02** |
-| Text-search-required | 32.00 / 40.33 | **44.00 / 46.00** | **+12.00 / +5.67** |
-| **Single-tool Search-required** | 28.00 / 36.66 | **38.00 / 43.50** | **+10.00 / +6.85** |
-
-Single-tool Search-required combines the 25 visual-search-required and 25 text-search-required examples.
-
-The final agent keeps Search-free EM unchanged at **16.0%**, while improving visual-search-required EM from **24.0% to 32.0%** and text-search-required EM from **32.0% to 44.0%**.
-
-> Full O1 results—including Mixed-search-required, all Search-required samples, source splits, Frozen/Replay conditions, and bootstrap statistics—are reported in [docs/RESULTS.md](docs/RESULTS.md).
-
-### Web Tool Utility: Live vs NoTool
-
-Raw versus the final agent includes both training and system changes, so it is not a tool-only causal comparison. To isolate Web utility, we hold **Multimodal Web-Agent v0.1** fixed and only disable Web access:
-
-| Condition | EM | Token-F1 |
-|---|---:|---:|
-| NoTool | 1.33% | 2.22% |
-| Live Web | **32.00%** | **38.09%** |
-| Gain | **+30.67pp** | **+35.87pp** |
-
-Thus, Raw → Final Agent measures the complete training/system difference, while Same Agent: Live Web → NoTool measures task-level Web-tool utility.
+1. **Raw → Final Agent**：观察完整训练 + Agent 系统带来的变化；
+2. **Live Web → NoTool**：在固定同一训练后模型的情况下，衡量 Web Tool 本身的任务级效用。
 
 ---
 
-## 🖼️ E-VQA: External-Knowledge Multimodal Evaluation
+### O1-100 Live-Web
 
-To test the system on an external visual-question distribution, we use a 200-sample single-hop Agent-compatible subset of E-VQA.
+O1-100 包含：
 
-E-VQA emphasizes:
+* Search-free；
+* Visual-search-required；
+* Text-search-required；
+* Mixed-search-required。
 
-- fine-grained visual-entity understanding;
-- external encyclopedic knowledge;
-- joint use of image information and retrieved evidence.
+下面首先展示最能体现自主单工具搜索能力的 Search-free、Visual-search-required 和 Text-search-required 结果。
 
-We therefore call it **External-Knowledge Multimodal Evaluation**, rather than labeling it as another Search-required split.
+所有结果均使用完全相同的 sample IDs，数值为 `EM / Token-F1 (%)`。
+
+| Subset                          |           Raw | Multimodal Web-Agent v0.1 |                  Δ |
+| ------------------------------- | ------------: | ------------------------: | -----------------: |
+| Search-free                     | 16.00 / 18.00 |         **16.00 / 20.95** |      +0.00 / +2.95 |
+| Visual-search-required          | 24.00 / 32.98 |         **32.00 / 41.00** |  **+8.00 / +8.02** |
+| Text-search-required            | 32.00 / 40.33 |         **44.00 / 46.00** | **+12.00 / +5.67** |
+| **Single-tool Search-required** | 28.00 / 36.66 |         **38.00 / 43.50** | **+10.00 / +6.85** |
+
+其中 `Single-tool Search-required` 合并 Visual-search-required 与 Text-search-required，共 50 个样本。
+
+结果显示：
+
+* Search-free EM：**16.0% → 16.0%**；
+* Visual-search-required EM：**24.0% → 32.0%**；
+* Text-search-required EM：**32.0% → 44.0%**。
+
+即最终 Agent 在无需搜索的问题上保持原有 EM，同时在需要视觉或文本 Web Search 的问题上获得更明显提升。
+
+> 完整 O1 结果，包括 Mixed-search-required、全部 Search-required、数据来源拆分、Frozen/Replay 条件以及 bootstrap 统计，见 [`docs/RESULTS.md`](docs/RESULTS.md)。
+
+---
+
+### Web Tool Utility：Live vs NoTool
+
+Raw 与最终 Agent 的差异包含训练和系统变化，因此不能单独解释为 Web Tool 的因果收益。
+
+为了单独衡量工具价值，我们固定 **Multimodal Web-Agent v0.1**，只改变是否允许访问 Web Tool。
+
+O1 Search-required：
+
+| Condition |           EM |     Token-F1 |
+| --------- | -----------: | -----------: |
+| NoTool    |        1.33% |        2.22% |
+| Live Web  |   **32.00%** |   **38.09%** |
+| Gain      | **+30.67pp** | **+35.87pp** |
+
+因此：
+
+```text
+Raw → Final Agent
+```
+
+衡量的是**完整训练与 Agent 系统差异**；
+
+而：
+
+```text
+Same Agent: Live Web → NoTool
+```
+
+才用于评估 **Web Tool 的任务级效用**。
+
+---
+
+## 🖼️ E-VQA：外部知识型多模态评测
+
+为了进一步验证模型在外部图像问答分布上的能力，本项目使用 E-VQA 构建了一个 **200 样本的 single-hop Agent-compatible evaluation set**。
+
+E-VQA 的问题强调：
+
+* 细粒度视觉实体理解；
+* 外部百科知识获取；
+* 图像信息与外部 Evidence 的联合使用。
+
+因此这里将 E-VQA 作为：
+
+> **External-Knowledge Multimodal Evaluation**
+
+而不是人为定义为一个额外的 `search-required split`。
+
+---
 
 ### Raw → Final Agent
 
-On the same 200 examples:
+在完全相同的 200 个样本上：
 
-| Model | EM | Token-F1 |
-|---|---:|---:|
-| Raw Qwen2.5-VL-3B | 9.00% | 12.11% |
-| **Multimodal Web-Agent v0.1** | **18.00%** | **23.00%** |
-| Δ | **+9.00pp** | **+10.89pp** |
+| Model                         |          EM |     Token-F1 |
+| ----------------------------- | ----------: | -----------: |
+| Raw Qwen2.5-VL-3B             |       9.00% |       12.11% |
+| **Multimodal Web-Agent v0.1** |  **18.00%** |   **23.00%** |
+| Δ                             | **+9.00pp** | **+10.89pp** |
 
-Paired bootstrap 95% confidence intervals:
+Paired bootstrap 95% CI：
 
-~~~text
+```text
 EM:
 +9.00pp
 95% CI: [+3.50pp, +14.50pp]
@@ -223,91 +276,106 @@ EM:
 Token-F1:
 +10.89pp
 95% CI: [+4.85pp, +16.83pp]
-~~~
+```
 
-The final system obtains:
+最终系统在该 E-VQA-200 子集上：
 
-- EM: **9.0% → 18.0%**;
-- Token-F1: **12.11% → 23.0%**;
-- Protocol Validity: **90.5%**;
-- Tool-use Rate: **91.0%**.
+* EM：**9.0% → 18.0%**
+* Token-F1：**12.11% → 23.0%**
+* Protocol Validity：**90.5%**
+* Tool-use Rate：**91.0%**
 
-See [docs/RESULTS.md](docs/RESULTS.md) and [docs/EVALUATION.md](docs/EVALUATION.md) for full statistics and staged commands.
+完整统计见：
 
-> **Evaluation note.** E-VQA-200 was also used during Evidence Interface engineering. We therefore report it as an external Agent-compatible evaluation/development set, not as an untouched final test set. A new unseen holdout should be used for a stricter generalization claim after the system is frozen.
+* [`docs/RESULTS.md`](docs/RESULTS.md)
+* [`docs/EVALUATION.md`](docs/EVALUATION.md)
+
+> **Evaluation Note**
+>
+> E-VQA-200 同时用于 Evidence Interface 的工程迭代，因此本项目将其视为 external Agent-compatible evaluation/development set，而不是 untouched final test set。更严格的泛化验证应在冻结当前系统后使用新的 unseen holdout。
 
 ---
 
 ## 🔎 Agent-facing Evidence Interface
 
-For a small multimodal agent, retrieving correct evidence does not guarantee that the model can consume it effectively.
+对于小参数 Multimodal Agent：
 
-The final interface is:
+> **检索到正确 Evidence，不等于模型能够有效消费这些 Evidence。**
 
-~~~mermaid
+直接向 3B Agent 注入长网页 passage 会增加上下文负担，因此最终系统采用：
+
+```mermaid
 flowchart LR
     A[Web Retrieval] --> B[Question-Aware Evidence Selection]
     B --> C[Short Context Anchor]
     C --> D[Compact Tool Observation]
     D --> E[Multimodal Web-Agent]
-~~~
+```
 
-The model-visible Tool Observation is reduced from approximately:
+最终 Evidence Interface 将 model-visible Tool Observation 从约：
 
-~~~text
+```text
 ~2.5K characters
         ↓
 ~0.9K characters
-~~~
+```
 
-| Metric | Long Evidence | Compact Evidence Interface |
-|---|---:|---:|
-| Protocol Validity | 51.0% | **90.5%** |
-| EM | 6.0% | **18.0%** |
-| Token-F1 | 7.78% | **23.0%** |
+对应：
 
-R5 performs no new training or reinforcement learning and does not modify model parameters. It demonstrates that tool quality is both a retrieval problem and an interface problem: evidence selection, context compression, and semantic grounding are needed after Web retrieval.
+| Metric            | Long Evidence | Compact Evidence Interface |
+| ----------------- | ------------: | -------------------------: |
+| Protocol Validity |         51.0% |                  **90.5%** |
+| EM                |          6.0% |                  **18.0%** |
+| Token-F1          |         7.78% |                  **23.0%** |
+
+这一结果体现了项目中的一个核心系统设计观点：
+
+> **Tool quality 不只是 Retrieval Problem，同时也是 Interface Problem。**
+
+对于小型多模态 Agent，Web Retrieval 之后还需要考虑 Evidence Selection、Context Compression 与 Semantic Grounding，才能将搜索结果转化为真正有效的 Agent Observation。
 
 ---
 
 ## 📊 Key Results
 
-| Stage | Metric | Before / Raw | Final |
-|---|---|---:|---:|
-| Protocol-SFT | Protocol Validity | — | **100.0%** |
-| Protocol-SFT | Action Accuracy | — | **70.0%** |
-| GRPO | Search-required EM | 40.67% | **47.33%** |
-| GRPO | Search-required Token-F1 | 45.97% | **52.49%** |
-| O1 Live-Web | Visual-search-required EM | 24.0% | **32.0%** |
-| O1 Live-Web | Text-search-required EM | 32.0% | **44.0%** |
-| O1 Live-Web | Single-tool Search-required EM | 28.0% | **38.0%** |
-| O1 Live-Web | Search-free EM | 16.0% | **16.0%** |
-| E-VQA-200 | EM | 9.0% | **18.0%** |
-| E-VQA-200 | Token-F1 | 12.11% | **23.0%** |
-| Evidence Interface | Protocol Validity | 51.0% | **90.5%** |
+| Stage              | Metric                         | Before / Raw |      Final |
+| ------------------ | ------------------------------ | -----------: | ---------: |
+| Protocol-SFT       | Protocol Validity              |            — | **100.0%** |
+| Protocol-SFT       | Action Accuracy                |            — |  **70.0%** |
+| GRPO               | Search-required EM             |       40.67% | **47.33%** |
+| GRPO               | Search-required Token-F1       |       45.97% | **52.49%** |
+| O1 Live-Web        | Visual-search-required EM      |        24.0% |  **32.0%** |
+| O1 Live-Web        | Text-search-required EM        |        32.0% |  **44.0%** |
+| O1 Live-Web        | Single-tool Search-required EM |        28.0% |  **38.0%** |
+| O1 Live-Web        | Search-free EM                 |        16.0% |  **16.0%** |
+| E-VQA-200          | EM                             |         9.0% |  **18.0%** |
+| E-VQA-200          | Token-F1                       |       12.11% |  **23.0%** |
+| Evidence Interface | Protocol Validity              |        51.0% |  **90.5%** |
 
-Detailed results and comparison boundaries are in [docs/RESULTS.md](docs/RESULTS.md).
+详细结果及统计边界见：
+
+* [`docs/RESULTS.md`](docs/RESULTS.md)
 
 ---
 
 ## 🏷️ Model Naming
 
-Public model names are:
+本项目对外采用以下模型名称：
 
-| Public Name | Description |
-|---|---|
-| **Protocol-SFT v0.1** | The first-stage model for Tool-Use Protocol cold-start |
-| **Multimodal Web-Agent v0.1** | The final agent trained from Protocol-SFT with GRPO |
+| Public Name                   | Description                             |
+| ----------------------------- | --------------------------------------- |
+| **Protocol-SFT v0.1**         | 完成 Tool-Use Protocol cold-start 的第一阶段模型 |
+| **Multimodal Web-Agent v0.1** | 在 Protocol-SFT 基础上通过 GRPO 训练得到的最终 Agent |
 
-To preserve historical runs, code and configuration may still contain:
+为保证历史实验、配置和脚本可复现，代码内部仍可能出现：
 
-~~~text
+```text
 reward_v21
 grpo_reward_v21
 reward_v2_1
-~~~
+```
 
-These are implementation identifiers, not separate public model names. The optional Stage2 research checkpoint is documented separately in [docs/MODELS.md](docs/MODELS.md) and [docs/RESULTS.md](docs/RESULTS.md); it is not part of the recommended public path.
+这些名称属于内部实验标识，并不代表不同的公开模型。
 
 ---
 
@@ -315,54 +383,58 @@ These are implementation identifiers, not separate public model names. The optio
 
 ### 1. Clone
 
-~~~bash
+```bash
 git clone https://github.com/yigu666/Multimodal-Web-Agent.git
 cd Multimodal-Web-Agent
-~~~
+```
 
-### 2. Create the environment
+### 2. 创建环境
 
-~~~bash
+```bash
 conda env create -f environment/environment.yml
 conda activate multimodal-web-agent
 
 python -m pip install -e . --no-deps
-~~~
+```
 
-### 3. Verify the public code
+### 3. 验证公开代码
 
-~~~bash
+```bash
 pytest -q
-~~~
+```
 
-See [docs/INSTALL.md](docs/INSTALL.md) for dependency details and runtime notes.
+完整依赖与环境信息见：
+
+* [`docs/INSTALL.md`](docs/INSTALL.md)
 
 ---
 
 ## 📥 Base Model
 
-The base model is not redistributed with this repository. Download it separately into the project directory:
+基础模型不会随仓库重新分发，需要单独下载：
 
-~~~bash
+```bash
 export MWA_ROOT="$PWD"
 export HF_HOME="$MWA_ROOT/.cache/huggingface"
 export HF_HUB_CACHE="$HF_HOME/hub"
 
 hf download Qwen/Qwen2.5-VL-3B-Instruct \
   --local-dir "$MWA_ROOT/models/Qwen2.5-VL-3B-Instruct"
-~~~
+```
 
-If disk space is limited, point the Hugging Face cache explicitly at a large project volume.
+> 如果本地磁盘空间有限，建议将 Hugging Face cache 显式指向容量充足的磁盘。
 
 ---
 
 ## 📚 Data
 
-Raw datasets are not redistributed.
+本仓库不重新分发原始数据集。
 
-Protocol-SFT and GRPO training inputs are built from **FVQA** and can be downloaded from Hugging Face:
+Protocol-SFT / GRPO 主训练数据来自 **FVQA**，相关公开输入可以通过 Hugging Face 获取。
 
-~~~bash
+示例：
+
+```bash
 mkdir -p "$MWA_ROOT/data/raw/fvqa"
 
 hf download lmms-lab/FVQA \
@@ -371,11 +443,13 @@ hf download lmms-lab/FVQA \
   --repo-type dataset \
   --revision bb4a4ff4c9c3fd0382d11f5d7fccd66d0b8428b5 \
   --local-dir "$MWA_ROOT/data/raw/fvqa"
-~~~
+```
 
-See [docs/DATA.md](docs/DATA.md) for downloads, cache audits, Protocol-SFT builders, and E-VQA public inputs.
+数据下载、Cache Audit、Protocol-SFT 数据构建与 E-VQA public inputs 详见：
 
-> Never unpickle files from an untrusted source.
+* [`docs/DATA.md`](docs/DATA.md)
+
+> 请勿反序列化来源不可信的 Pickle 文件。
 
 ---
 
@@ -383,40 +457,42 @@ See [docs/DATA.md](docs/DATA.md) for downloads, cache audits, Protocol-SFT build
 
 ### Protocol-SFT
 
-Inspect the loss mask before training:
+训练前检查 Loss Mask：
 
-~~~bash
+```bash
 export CUDA_VISIBLE_DEVICES=0
 
 python scripts/inspect_protocol_sft_mask.py \
   --project-root "$PWD" \
   --config configs/protocol_sft/train_full_format_v1.yaml \
   --all-splits
-~~~
+```
 
-Run Protocol-SFT:
+开始 Protocol-SFT：
 
-~~~bash
+```bash
 python scripts/train_protocol_sft.py \
   --project-root "$PWD" \
   --config configs/protocol_sft/train_full_format_v1.yaml
-~~~
+```
+
+---
 
 ### GRPO
 
-Build and audit the prompt pool:
+构建 GRPO Prompt Pool：
 
-~~~bash
+```bash
 python scripts/build_grpo_prompt_pool_v1.py
 
 python scripts/audit_grpo_prompt_pool.py \
   --input data/processed/grpo_prompt_pool_v1/train.jsonl \
   --output data/manifests/grpo_prompt_pool_v1_audit.json
-~~~
+```
 
-Prepare the reward/training contract:
+准备 Reward / Training Contract：
 
-~~~bash
+```bash
 python scripts/build_reward_v2_coverage_cache.py \
   --config configs/grpo/reward_v2_1_answer_dominant_positive.yaml
 
@@ -425,19 +501,21 @@ python scripts/run_grpo_reward_v2_text_exploration_smoke.py \
   --output-dir outputs/grpo_reward_v2_text_exploration_smoke_128
 
 python scripts/prepare_reward_v21_contract.py
-~~~
+```
 
-Run formal GRPO:
+开始正式 GRPO：
 
-~~~bash
+```bash
 python scripts/run_grpo_reward_v2_full.py \
   --training-config configs/grpo/reward_v21_full_server.yaml \
   --output-dir outputs/grpo_reward_v21_full
-~~~
+```
 
-Script names retain historical experiment identifiers so the verified runs remain reproducible. The public final model name is **Multimodal Web-Agent v0.1**.
+> 上述脚本名称保留历史实验命名，以保证已验证实验路径可复现。对应的公开最终模型名称为 **Multimodal Web-Agent v0.1**。
 
-See [docs/TRAINING.md](docs/TRAINING.md) for the complete procedure.
+完整训练说明：
+
+* [`docs/TRAINING.md`](docs/TRAINING.md)
 
 ---
 
@@ -445,9 +523,11 @@ See [docs/TRAINING.md](docs/TRAINING.md) for the complete procedure.
 
 ### O1 Live-Web
 
-Live mode requires local Web Search credentials. **Never commit API keys to Git.**
+Live 模式需要在本地配置对应 Web Search credentials。
 
-~~~bash
+**不要将 API Key 提交到 Git。**
+
+```bash
 export SERPER_API_KEY="..."
 export SERPAPI_API_KEY="..."
 
@@ -460,148 +540,179 @@ python scripts/run_online_web_agent_v1.py \
   --backend-mode live \
   --models sft reward_v21 \
   --output-root outputs/online_web_agent_o1_public
-~~~
+```
 
-If a frozen evidence snapshot is available, use Replay or Frozen mode to reduce new remote requests. Live-Web responses change over time; deterministic decoding cannot make third-party search responses immutable.
+如已有冻结 evidence snapshot，可使用 Replay / Frozen 模式减少新的远程请求。
 
-### Raw baseline
+> Live-Web 搜索结果会随时间变化。确定性 decoding 并不能保证第三方 Web Search 返回内容永久不变。
 
-~~~bash
+---
+
+### Raw Baseline
+
+```bash
 export MWA_BASE_MODEL="$PWD/models/Qwen2.5-VL-3B-Instruct"
 
 python evaluation/final_raw_parametric_knowledge_baseline/run_raw_baseline.py
-~~~
+```
+
+---
 
 ### E-VQA
 
-Download the public inputs first:
+首先下载公开输入：
 
-~~~bash
+```bash
 bash scripts/download_evqa_public_inputs.sh
-~~~
+```
 
-E-VQA is a staged, fail-closed evaluation. R5 consumes the frozen artifacts produced by preceding stages.
+E-VQA 采用 staged、fail-closed 的冻结评测流程。R5 会严格消费前序阶段生成并冻结的 artifact。
 
-See [docs/EVALUATION.md](docs/EVALUATION.md) for the complete R1 → R5 procedure. Benchmark images, KB files, generated evidence, and episode outputs remain outside Git.
+完整执行方式见：
+
+* [`docs/EVALUATION.md`](docs/EVALUATION.md)
+
+E-VQA 的 benchmark images、KB、generated evidence、episode outputs 等均保持在 Git 之外。
 
 ---
 
 ## 🧪 Reproducibility
 
-The release keeps execution contracts and audits at key stages:
+项目在关键阶段保留执行契约与审计机制，包括：
 
-- fixed data and artifact hashes;
-- Protocol and loss-mask checks;
-- GRPO prompt-pool audit;
-- Frozen and Replay evaluation;
-- Raw baseline;
-- fail-closed staged E-VQA;
-- synthetic and contract tests;
-- machine-readable headline results.
+* 固定数据与 artifact hashes；
+* Protocol / Loss Mask 检查；
+* GRPO prompt pool audit；
+* Frozen / Replay evaluation；
+* Raw baseline；
+* Fail-closed staged E-VQA；
+* Synthetic / contract tests；
+* Machine-readable headline results。
 
-Headline results are also stored in:
+关键结果同时保存在：
 
-~~~text
+```text
 results/key_results.json
-~~~
+```
 
-Detailed interpretation is in [docs/RESULTS.md](docs/RESULTS.md).
+详细结果解释：
+
+* [`docs/RESULTS.md`](docs/RESULTS.md)
 
 ---
 
 ## 📁 Repository Structure
 
-~~~text
+当前公开仓库主要结构：
+
+```text
 Multimodal-Web-Agent/
-├── configs/                 # Data, training, and evaluation configurations
-├── docs/                    # Install, data, training, evaluation, and results docs
-├── environment/             # Conda and pip environment definitions
-├── evaluation/              # E-VQA and Raw-baseline evaluation flows
-├── models/                  # LoRA adapters and checksums
-├── results/                 # Machine-readable verified headline results
-├── scripts/                 # Data, training, and evaluation entry points
+├── configs/                 # 数据、训练与评测配置
+├── docs/                    # 安装、数据、训练、评测与结果文档
+├── environment/             # Conda / pip 环境定义
+├── evaluation/              # E-VQA 与 Raw baseline 评测流程
+├── results/                 # Machine-readable 已验证关键结果
+├── scripts/                 # 数据、训练与评测入口
 ├── src/
 │   └── multimodal_web_agent/
-│                              # Agent, environment, training, and metrics
-├── tests/                   # Synthetic and contract tests
+│                              # Agent、环境、训练与指标实现
+├── tests/                   # Synthetic / contract tests
 ├── LICENSE
 ├── MODEL_LICENSE-QWEN
 ├── NOTICE
 ├── pyproject.toml
 ├── README.md
 └── README_zh-CN.md
-~~~
+```
 
 ---
 
 ## 📖 Documentation
 
-Recommended reading order:
+推荐按以下顺序阅读：
 
-1. [docs/INSTALL.md](docs/INSTALL.md) — environment and dependencies
-2. [docs/DATA.md](docs/DATA.md) — data downloads and construction
-3. [docs/TRAINING.md](docs/TRAINING.md) — Protocol-SFT and GRPO
-4. [docs/EVALUATION.md](docs/EVALUATION.md) — O1, Raw, and E-VQA
-5. [docs/RESULTS.md](docs/RESULTS.md) — complete results and comparison boundaries
-6. [docs/RELEASE_AUDIT.md](docs/RELEASE_AUDIT.md) — release audit information
+1. [`docs/INSTALL.md`](docs/INSTALL.md) — 环境与依赖
+2. [`docs/DATA.md`](docs/DATA.md) — 数据下载与构建
+3. [`docs/TRAINING.md`](docs/TRAINING.md) — Protocol-SFT / GRPO
+4. [`docs/EVALUATION.md`](docs/EVALUATION.md) — O1 / Raw / E-VQA
+5. [`docs/RESULTS.md`](docs/RESULTS.md) — 完整结果与比较边界
+6. [`docs/RELEASE_AUDIT.md`](docs/RELEASE_AUDIT.md) — Release 审计信息
 
 ---
 
 ## 📌 Public Release Scope
 
-This repository publishes the reproducible core training and evaluation path:
+本仓库公开项目的核心可复现训练和评测路径，包括：
 
-- public-data acquisition and construction code;
-- Protocol-SFT;
-- GRPO;
-- the Multimodal Web-Agent runtime;
-- Real/Frozen/Replay Web evaluation;
-- the Raw parametric baseline;
-- staged E-VQA evaluation;
-- result aggregation and evaluation code;
-- synthetic and contract tests.
+* 公共数据获取与构建代码；
+* Protocol-SFT；
+* GRPO；
+* Multimodal Web-Agent Runtime；
+* Real / Frozen / Replay Web Evaluation；
+* Raw parametric baseline；
+* E-VQA staged evaluation；
+* 结果统计与评测代码；
+* Synthetic / contract tests。
 
-The public release does not include:
+公开仓库不包含：
 
-- private API credentials;
-- raw or fully processed datasets;
-- raw Web caches;
-- private logs or conversations;
-- host-specific files and paths;
-- Qwen base-model weights;
-- non-public intermediate research artifacts.
+* 私有 API credentials；
+* 原始或处理后的完整数据集；
+* 原始 Web cache；
+* 私有日志与对话记录；
+* Host-specific 文件与路径；
+* Qwen 基础模型权重；
+* 非正式发布的中间研究 artifact。
 
-See [docs/RELEASE_AUDIT.md](docs/RELEASE_AUDIT.md) for release boundaries. The recommended public model is Multimodal Web-Agent v0.1; historical reward identifiers remain only where needed by reproducibility scripts.
+详细 release 审计见：
+
+* [`docs/RELEASE_AUDIT.md`](docs/RELEASE_AUDIT.md)
 
 ---
 
 ## 🙏 Acknowledgements
 
-This project uses or references:
+本项目使用或参考了以下优秀工作：
 
-- [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
-- [Multimodal Search-R1](https://github.com/EvolvingLMMs-Lab/multimodal-search-r1)
-- [Search-R1](https://github.com/PeterGriffinJin/Search-R1)
-- [FVQA](https://huggingface.co/datasets/lmms-lab/FVQA)
-- InfoSeek
-- E-VQA
-- [BGE-M3](https://huggingface.co/BAAI/bge-m3)
+* [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
+* [Multimodal Search-R1](https://github.com/EvolvingLMMs-Lab/multimodal-search-r1)
+* [Search-R1](https://github.com/PeterGriffinJin/Search-R1)
+* [FVQA](https://huggingface.co/datasets/lmms-lab/FVQA)
+* InfoSeek
+* E-VQA
+* [BGE-M3](https://huggingface.co/BAAI/bge-m3)
 
-Where applicable, external code is identified as adapted from its upstream project; related work and benchmarks are cited as inspiration or evaluation sources.
+感谢相关作者和开源社区提供的模型、数据、代码与研究基础。
+
+本项目在这些工作的基础上重点实践并扩展：
+
+* 3B Multimodal Web-Agent 的 Protocol-SFT → GRPO 训练流程；
+* Visual / Text Web Tool Use；
+* Search-free / Search-required Agent Evaluation；
+* Live-Web Tool Utility Evaluation；
+* Agent-facing Evidence Interface；
+* 小参数多模态 Web-Agent 的训练、工具执行与评测闭环。
 
 ---
 
 ## 📄 License
 
-Original repository code is released under the **Apache License 2.0**; see [LICENSE](LICENSE).
+本仓库原创代码采用 **Apache License 2.0**，详见：
 
-The base model and derived model files are governed by the applicable Qwen terms, including the [official Qwen Research License](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/blob/main/LICENSE). See [MODEL_LICENSE-QWEN](MODEL_LICENSE-QWEN) and [NOTICE](NOTICE) before using or redistributing model-related files.
+* [`LICENSE`](LICENSE)
+
+基础模型及其衍生模型文件需遵循对应的 Qwen 模型许可条款，详见：
+
+* [`MODEL_LICENSE-QWEN`](MODEL_LICENSE-QWEN)
+* [`NOTICE`](NOTICE)
+
+请在使用或重新分发模型相关文件前仔细阅读对应许可。
 
 ---
 
 ## 🌟 Current Release
 
-~~~text
+```text
 Base Model:
 Qwen2.5-VL-3B-Instruct
 
@@ -619,7 +730,9 @@ Visual Web Search + Text Web Search
 
 Main Evaluation:
 FVQA + O1 Live/Frozen/Replay + E-VQA
-~~~
+```
 
-If this project is useful for your research or engineering work, please consider starring the repository, opening an issue, or contributing improvements.
+---
+
+如果这个项目对你的研究或工程实践有帮助，欢迎 ⭐ Star、提交 Issue 或交流改进建议。
 

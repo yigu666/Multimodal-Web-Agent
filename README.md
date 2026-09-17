@@ -252,7 +252,6 @@ E-VQA 的问题强调：
 
 > **External-Knowledge Multimodal Evaluation**
 
-而不是人为定义为一个额外的 `search-required split`。
 
 ---
 

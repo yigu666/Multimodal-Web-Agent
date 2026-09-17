@@ -1,6 +1,6 @@
 # Multimodal Web-Agent
 
-[English](README.md) | **简体中文**
+[English](README_en-EN.md) | **简体中文**
 
 > 基于 **Qwen2.5-VL-3B**、**Protocol-SFT** 与 **GRPO** 构建的 Multimodal Web-Agent，使多模态模型能够自主调用真实视觉/文本 Web Search，并利用外部知识完成视觉问答。
 

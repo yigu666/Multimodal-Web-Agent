@@ -1,0 +1,39 @@
+# Public bootstrap for Protocol-SFT v0.4 using the current implementation.
+# The pool format is v0.1; the implemented executability gate is v0.2.
+# This rebuild does not assert byte equality with historical v0.1 artifacts.
+schema_version: validated-master-pool-v0.1
+seed: 20260727
+
+gate:
+  schema_version: shared-executability-gate-v0.2
+  config_file: configs/data_quality/shared_executability_gate_v0_2.yaml
+  maximum_question_copy_ratio_without_entity: 0.85
+  require_evidence_reachability: true
+
+policy:
+  name: reject_first
+  repair_mode: reject_only
+  automatic_route_conversion: false
+  automatic_query_rewrite: false
+
+chain:
+  protocol_sft_schema: protocol-sft-v0.4
+
+source:
+  kind: FVQA Train
+  parquet_file: data/raw/fvqa/fvqa_train.parquet
+  image_search_cache: data/raw/fvqa/fvqa_train_image_search_results_cache.pkl
+  previous_trajectory_path: data/processed/protocol_sft_v0_3/trajectories.jsonl
+
+image_search:
+  top_k: 3
+
+boundaries:
+  include_fvqa_train: true
+  include_fvqa_test: false
+  include_eval_sources: false
+
+output:
+  directory: data/processed/validated_master_pool_v0_1
+  manifest_file: data/manifests/validated_master_pool_v0_1_manifest.json
+  audit_file: data/manifests/validated_master_pool_v0_1_audit.json
